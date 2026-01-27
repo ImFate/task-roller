@@ -1,802 +1,344 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Inferno Perk Roller</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Task Roller</title>
 
-  <!-- OSRS-ish font (RuneScape UF). If it fails, fallbacks kick in. -->
-  <style>
-    @font-face{
-      font-family:"RuneScape UF";
-      src:
-        url("https://cdn.jsdelivr.net/gh/pepebecker/osrs-font@master/RuneScape-UF.woff2") format("woff2"),
-        url("https://cdn.jsdelivr.net/gh/pepebecker/osrs-font@master/RuneScape-UF.woff") format("woff");
-      font-display: swap;
-    }
-  </style>
+<style>
+:root{
+  --bg:#0f1115;
+  --panel:#171a22;
+  --text:#eef2ff;
+  --muted:#a8b0c7;
+  --accent:#ff7a18;
+  --border:rgba(255,255,255,.10);
+}
 
-  <style>
-    :root{
-      font-family: "RuneScape UF", system-ui, -apple-system, Segoe UI, Roboto, Arial;
-      --bg0:#07090c;
-      --bg1:#0b0f14;
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  background: linear-gradient(180deg,#0b0d12,var(--bg));
+  color:var(--text);
+}
 
-      --panel: rgba(255,255,255,.045);
-      --panel2: rgba(255,255,255,.03);
+header{
+  padding:20px;
+  border-bottom:1px solid var(--border);
+  background:rgba(0,0,0,.3);
+  position:sticky;
+  top:0;
+}
 
-      --border: rgba(255,255,255,.08);
-      --border2: rgba(255,255,255,.14);
+h1{
+  margin:0;
+  font-size:18px;
+  display:flex;
+  align-items:center;
+}
+.spacer{flex:1}
 
-      --text:#e8eef7;
-      --muted: rgba(232,238,247,.72);
+main{
+  max-width:1100px;
+  margin:0 auto;
+  padding:18px;
+  display:grid;
+  grid-template-columns:1fr 360px;
+  gap:14px;
+}
+@media(max-width:980px){ main{grid-template-columns:1fr} }
 
-      --orange:#f18a1a;
-      --orange2:#d87412;
+.card{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:14px;
+}
 
-      --shadow: 0 18px 60px rgba(0,0,0,.55);
-      --shadow2: 0 10px 28px rgba(0,0,0,.45);
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 
-      --r:16px;
-    }
+button{
+  cursor:pointer;
+  border:1px solid rgba(255,255,255,.15);
+  background:linear-gradient(180deg,#ff8a2a,#ff6a00);
+  color:#111;
+  font-weight:800;
+  padding:10px 14px;
+  border-radius:12px;
+}
+button.secondary{
+  background:rgba(255,255,255,.06);
+  color:var(--text);
+}
 
-    body{
-      margin:0;
-      color:var(--text);
-      background:
-        radial-gradient(1000px 600px at 50% 10%, rgba(255,255,255,.06), transparent 60%),
-        radial-gradient(900px 600px at 50% 100%, rgba(0,0,0,.55), transparent 60%),
-        linear-gradient(180deg, var(--bg0), var(--bg1));
-    }
+.divider{height:1px;background:var(--border);margin:12px 0}
 
-    .topbar{
-      padding:14px 18px;
-      border-bottom:1px solid rgba(255,255,255,.06);
-      background: rgba(0,0,0,.18);
-      backdrop-filter: blur(6px);
-    }
+.result{
+  background:rgba(0,0,0,.35);
+  border:1px dashed rgba(255,255,255,.18);
+  border-radius:16px;
+  padding:14px;
+}
 
-    .wrap{ max-width: 1200px; margin:0 auto; padding:18px; }
+.resultGrid{display:grid;gap:10px;margin-top:10px}
 
-    h1{
-      margin:0;
-      font-size:20px;
-      letter-spacing:.2px;
-    }
+.taskCard{
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:14px;
+  padding:12px;
+}
 
-    .grid{
-      display:grid;
-      grid-template-columns: 2fr 1fr;
-      gap:14px;
-      align-items:start;
-      margin-top:14px;
-    }
+.taskHead{display:flex;gap:10px;align-items:center}
+.tag{
+  font-size:12px;
+  padding:3px 9px;
+  border-radius:999px;
+  background:rgba(255,122,24,.2);
+  font-weight:800;
+}
 
-    .card{
-      background: linear-gradient(180deg, var(--panel), var(--panel2));
-      border:1px solid var(--border);
-      border-radius: var(--r);
-      padding:14px;
-      box-shadow: var(--shadow2);
-      backdrop-filter: blur(6px);
-    }
+.kv{
+  display:grid;
+  grid-template-columns:100px 1fr;
+  gap:6px 10px;
+  margin-top:10px;
+}
+.k{color:var(--muted);font-size:12px}
+.v{font-weight:800}
 
-    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    .row > * { flex:1; }
+.desc{
+  margin-top:10px;
+  padding-top:10px;
+  border-top:1px solid var(--border);
+  font-weight:700;
+}
 
-    input, textarea{
-      width:100%;
-      box-sizing:border-box;
-      background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.12));
-      color: var(--text);
-      border:1px solid var(--border);
-      border-radius:14px;
-      padding:10px 12px;
-      outline:none;
-      font-family: inherit;
-    }
-    input:focus, textarea:focus{
-      border-color: rgba(241,138,26,.55);
-      box-shadow: 0 0 0 3px rgba(241,138,26,.12);
-    }
-    textarea{
-      min-height:160px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    }
+textarea{
+  width:100%;
+  background:rgba(0,0,0,.3);
+  color:var(--text);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:10px;
+  min-height:150px;
+}
 
-    button{
-      cursor:pointer;
-      border:1px solid var(--border);
-      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.18));
-      color: var(--text);
-      padding:12px 12px;
-      border-radius: 14px;
-      font-weight:900;
-      font-family: inherit;
-      box-shadow: 0 8px 18px rgba(0,0,0,.35);
-    }
-    button:hover{ border-color: var(--border2); }
-    button:disabled{ opacity:.55; cursor:not-allowed; }
+.bossList{display:grid;gap:8px;max-height:320px;overflow:auto}
+.bossItem{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  padding:10px;
+  border-radius:12px;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.1);
+}
+.bossItem input{transform:scale(1.15)}
+.bossItem span{font-weight:800}
 
-    .primary{
-      background: linear-gradient(180deg, var(--orange), var(--orange2));
-      border-color: rgba(0,0,0,.25);
-      color: #1a1208;
-      box-shadow: 0 10px 22px rgba(241,138,26,.22);
-    }
-
-    .ghost{
-      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.22));
-      border-color: var(--border);
-      font-weight:900;
-    }
-
-    .danger{
-      background: linear-gradient(180deg, #2a313d, #1a212b);
-      border-color: var(--border);
-      color: var(--text);
-    }
-
-    .muted{ color: var(--muted); font-size:12px; }
-    .tiny{ font-size:11px; opacity:.85; }
-
-    .resultBox{
-      margin-top:10px;
-      padding:14px;
-      border-radius: 14px;
-      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(0,0,0,.22));
-      border:1px dashed rgba(255,255,255,.14);
-      box-shadow: inset 0 0 0 1px rgba(0,0,0,.2);
-      white-space: pre-wrap;
-      font-weight:900;
-      line-height:1.25;
-      font-size:16px;
-    }
-
-    .subhead{
-      display:flex;
-      justify-content:space-between;
-      align-items:baseline;
-      gap:10px;
-      margin-top:10px;
-    }
-    .subhead b{ font-size:14px; }
-
-    .list{
-      margin-top:10px;
-      border-radius: 14px;
-      border:1px solid var(--border);
-      background: linear-gradient(180deg, rgba(0,0,0,.18), rgba(0,0,0,.28));
-      overflow:auto;
-    }
-
-    table{ width:100%; border-collapse:collapse; }
-    th, td{
-      padding:10px;
-      border-bottom:1px solid rgba(255,255,255,.06);
-      vertical-align:top;
-      font-size:13px;
-    }
-    th{
-      position:sticky;
-      top:0;
-      background: rgba(12,16,22,.92);
-      text-align:left;
-      z-index:1;
-      border-bottom:1px solid rgba(255,255,255,.08);
-      font-size:12px;
-      letter-spacing:.2px;
-    }
-
-    .pill{
-      display:inline-block;
-      padding:2px 8px;
-      border-radius:999px;
-      border:1px solid var(--border);
-      background: rgba(255,255,255,.04);
-      font-size:12px;
-      color: var(--text);
-    }
-
-    /* tier buttons */
-    .tiers{ display:flex; gap:6px; flex-wrap:wrap; }
-    .tierBtn{
-      padding:6px 10px;
-      border-radius:999px;
-      border:1px solid var(--border);
-      background: rgba(255,255,255,.04);
-      color: var(--text);
-      font-weight:900;
-      cursor:pointer;
-      user-select:none;
-    }
-    .tierBtn.active{
-      background: linear-gradient(180deg, var(--orange), var(--orange2));
-      border-color: rgba(0,0,0,.25);
-      color: #1a1208;
-    }
-
-    /* checkbox list */
-    .checkRow{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:10px;
-      border:1px solid rgba(255,255,255,.06);
-      border-radius:14px;
-      background: rgba(0,0,0,.18);
-      margin-top:10px;
-    }
-    .checkRow input{ width:auto; transform: scale(1.1); }
-    .checkRow b{ font-size:13px; }
-
-    details summary{ cursor:pointer; font-weight:900; }
-    .two{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-
-    @media (max-width: 980px){
-      .grid{ grid-template-columns: 1fr; }
-    }
-  </style>
+/* LOG */
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{padding:10px;border-bottom:1px solid rgba(255,255,255,.08)}
+th{color:var(--muted);text-align:left;background:rgba(0,0,0,.35);position:sticky;top:0}
+tbody tr:hover{background:rgba(255,255,255,.04)}
+</style>
 </head>
 
 <body>
-  <div class="topbar">
-    <div class="wrap">
-      <h1>Task Roller</h1>
+
+<header>
+  <h1>
+    Task Roller
+    <span class="spacer"></span>
+    <span style="font-size:11px;color:var(--muted)">Saved locally</span>
+  </h1>
+</header>
+
+<main>
+
+<section>
+  <div class="card">
+    <div class="row">
+      <button onclick="roll(1)">Roll 1</button>
+      <button onclick="roll(2)">Roll 2</button>
+      <button onclick="roll(3)">Roll 3</button>
+      <span class="spacer"></span>
+      <button class="secondary" onclick="resetFilters()">Reset Filters</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="result" id="result">
+      Click a roll button to generate tasks.
     </div>
   </div>
 
-  <div class="wrap">
-    <div class="grid">
+  <!-- LOG -->
+  <div class="card" style="margin-top:14px">
+    <div class="row">
+      <strong>Log</strong>
+      <span class="spacer"></span>
+      <span style="font-size:12px;color:var(--muted)"><span id="logCount">0</span> entries</span>
+    </div>
 
-      <!-- LEFT: Roller + Results -->
-      <div class="card">
-        <div class="row" style="gap:12px;">
-          <button class="primary" id="roll1">Roll 1</button>
-          <button class="primary" id="roll2">Roll 2</button>
-          <button class="primary" id="roll3">Roll 3</button>
-          <button class="ghost" id="resetBtn" style="flex:0 0 140px;">Reset</button>
-        </div>
+    <div class="divider"></div>
 
-        <div class="subhead">
-          <b id="rolledTitle">Rolled 0 tasks</b>
-          <span class="muted" id="statsBox">Pool: —</span>
-        </div>
+    <div style="max-height:260px;overflow:auto;border-radius:12px;border:1px solid rgba(255,255,255,.1)">
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Boss</th>
+            <th>Task #</th>
+            <th>Points</th>
+            <th>Task</th>
+          </tr>
+        </thead>
+        <tbody id="logBody"></tbody>
+      </table>
+    </div>
 
-        <div class="resultBox" id="resultBox">Click Roll 1 / 2 / 3</div>
-
-        <div class="subhead" style="margin-top:14px;">
-          <b>Perk Tiers</b>
-          <div class="row" style="flex:0 0 auto; gap:10px;">
-            <button class="danger" id="resetTiersBtn" style="flex:0 0 auto;">Reset tiers</button>
-            <button class="danger" id="clearLogBtn" style="flex:0 0 auto;">Clear log</button>
-          </div>
-        </div>
-
-        <div class="row" style="margin-top:10px;">
-          <input id="search" placeholder="Search perks..." />
-          <button class="ghost" id="saveBtn" style="flex:0 0 140px;">Save</button>
-        </div>
-
-        <div class="list" style="max-height:360px;">
-          <table>
-            <thead>
-              <tr>
-                <th>Perk</th>
-                <th style="width:90px;">Max</th>
-                <th style="width:270px;">Tier</th>
-              </tr>
-            </thead>
-            <tbody id="perkBody"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- RIGHT: Filters -->
-      <div class="card">
-        <b style="font-size:14px;">Perk Filters</b>
-        <div class="muted" style="margin-top:6px;">
-          Uncheck a perk to exclude it from rolls.
-        </div>
-
-        <div class="row" style="margin-top:10px;">
-          <button class="ghost" id="enableAll">Enable All</button>
-          <button class="ghost" id="disableAll">Disable All</button>
-        </div>
-
-        <div class="checkRow" style="margin-top:12px;">
-          <input type="checkbox" id="includeMaxed" />
-          <div>
-            <b>Include maxed perks</b>
-            <div class="muted tiny">If off, perks at max tier are excluded.</div>
-          </div>
-        </div>
-
-        <div class="list" style="max-height:540px;">
-          <table>
-            <thead>
-              <tr>
-                <th style="width:44px;"></th>
-                <th>Perk</th>
-              </tr>
-            </thead>
-            <tbody id="filterBody"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- LOG -->
-      <div class="card" style="grid-column: 1 / -1;">
-        <div class="row">
-          <b style="font-size:14px;">Log</b>
-          <div class="muted" style="text-align:right;" id="logCount">0 entries</div>
-        </div>
-
-        <div class="list" style="max-height:320px;">
-          <table>
-            <thead>
-              <tr>
-                <th style="width:170px;">Time</th>
-                <th>Perk</th>
-                <th style="width:120px;">Tier (at roll)</th>
-                <th style="width:80px;">Weight</th>
-              </tr>
-            </thead>
-            <tbody id="logBody"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- ADVANCED -->
-      <div class="card" style="grid-column: 1 / -1;">
-        <details>
-          <summary>Advanced (edit perk list / export)</summary>
-          <div style="margin-top:12px;" class="two">
-            <div>
-              <div class="muted" style="margin-bottom:6px;">
-                Perk format: <span class="pill">name | maxTier | weight</span>
-              </div>
-              <textarea id="perkInput" spellcheck="false"></textarea>
-              <div class="muted tiny" style="margin-top:6px;">
-                Example: <span class="pill">Blue Shell | 1 | 1</span>
-              </div>
-            </div>
-
-            <div>
-              <div class="muted" style="margin-bottom:6px;">Tools</div>
-              <div class="row">
-                <button class="ghost" id="loadSampleBtn">Load sample</button>
-                <button class="ghost" id="exportJsonBtn">Export JSON</button>
-                <button class="ghost" id="exportCsvBtn">Export CSV</button>
-              </div>
-              <div class="row" style="margin-top:10px;">
-                <button class="danger" id="wipeAllBtn">Wipe everything</button>
-              </div>
-              <div class="muted tiny" style="margin-top:10px;">
-                Data saves in your browser (localStorage). Export to keep records.
-              </div>
-            </div>
-          </div>
-        </details>
-      </div>
-
+    <div class="row" style="margin-top:10px">
+      <button class="secondary" onclick="clearLog()">Clear Log</button>
     </div>
   </div>
+
+  <!-- TASK INPUT -->
+  <div class="card" style="margin-top:14px">
+    <strong>Tasks</strong>
+    <textarea id="taskInput"></textarea>
+    <div class="row" style="margin-top:10px">
+      <button class="secondary" onclick="loadTasks()">Load + Save Tasks</button>
+    </div>
+  </div>
+</section>
+
+<aside>
+  <div class="card">
+    <strong>Boss Filters</strong>
+    <div class="divider"></div>
+    <div class="bossList" id="bossList"></div>
+  </div>
+</aside>
+
+</main>
 
 <script>
-  // Storage
-  const LS_PERKS   = "inferno_perks_imgstyle_v1";
-  const LS_TIERS   = "inferno_tiers_imgstyle_v1";    // { name: null|number }
-  const LS_LOG     = "inferno_log_imgstyle_v1";      // array
-  const LS_FILTERS = "inferno_filters_imgstyle_v1";  // { name: boolean }
+const STORAGE_TASKS="tasks_v1";
+const STORAGE_FILTERS="filters_v1";
+const STORAGE_LOG="log_v1";
 
-  const el = (id) => document.getElementById(id);
+let tasks=[
+ {id:1,points:950,boss:"Abyssal Sire",desc:"Create a Bludgeon"},
+ {id:2,points:315,boss:"Abyssal Sire",desc:"Obtain 1 Unsired"},
+ {id:3,points:4500,boss:"Alchemical Hydra",desc:"Obtain Hydra Claw"}
+];
 
-  function nowString(){ return new Date().toLocaleString(); }
+let enabledBosses=new Set();
+let log=[];
 
-  // Perk format: name | maxTier | weight
-  function parsePerks(text){
-    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    const perks = [];
-    for (const line of lines){
-      const parts = line.split("|").map(p => p.trim());
-      const name = parts[0];
-      if (!name) continue;
-      const maxTier = parts[1] ? Number(parts[1]) : 1;
-      const weight  = parts[2] ? Number(parts[2]) : 1;
-      perks.push({
-        name,
-        maxTier: Number.isFinite(maxTier) && maxTier > 0 ? Math.floor(maxTier) : 1,
-        weight:  Number.isFinite(weight)  && weight  > 0 ? weight : 1
-      });
-    }
-    return perks;
-  }
+function saveAll(){
+ localStorage.setItem(STORAGE_TASKS,JSON.stringify(tasks));
+ localStorage.setItem(STORAGE_FILTERS,JSON.stringify([...enabledBosses]));
+ localStorage.setItem(STORAGE_LOG,JSON.stringify(log));
+}
 
-  function weightedPick(items){
-    const total = items.reduce((s,it) => s + it.weight, 0);
-    let r = Math.random() * total;
-    for (const it of items){
-      r -= it.weight;
-      if (r <= 0) return it;
-    }
-    return items[items.length - 1];
-  }
+function loadAll(){
+ tasks=JSON.parse(localStorage.getItem(STORAGE_TASKS))||tasks;
+ enabledBosses=new Set(JSON.parse(localStorage.getItem(STORAGE_FILTERS))||tasks.map(t=>t.boss));
+ log=JSON.parse(localStorage.getItem(STORAGE_LOG))||[];
+ renderBosses();
+ renderLog();
+ document.getElementById("taskInput").value=exportTasks();
+}
 
-  function loadPerkText(){
-    const saved = localStorage.getItem(LS_PERKS);
-    if (saved) el("perkInput").value = saved;
-  }
-  function savePerkText(){
-    localStorage.setItem(LS_PERKS, el("perkInput").value);
-  }
+function roll(n){
+ const eligible=tasks.filter(t=>enabledBosses.has(t.boss));
+ if(!eligible.length) return;
+ const chosen=[...eligible].sort(()=>0.5-Math.random()).slice(0,n);
 
-  function loadTiers(){
-    const saved = localStorage.getItem(LS_TIERS);
-    return saved ? JSON.parse(saved) : {};
-  }
-  function saveTiers(map){
-    localStorage.setItem(LS_TIERS, JSON.stringify(map));
-  }
+ const now=new Date().toISOString();
+ chosen.forEach(t=>{
+   log.unshift({time:now,...t});
+ });
 
-  function loadLog(){
-    const saved = localStorage.getItem(LS_LOG);
-    return saved ? JSON.parse(saved) : [];
-  }
-  function saveLog(log){
-    localStorage.setItem(LS_LOG, JSON.stringify(log));
-  }
+ saveAll();
+ renderLog();
 
-  function loadFilters(){
-    const saved = localStorage.getItem(LS_FILTERS);
-    return saved ? JSON.parse(saved) : {};
-  }
-  function saveFilters(map){
-    localStorage.setItem(LS_FILTERS, JSON.stringify(map));
-  }
+ document.getElementById("result").innerHTML=`
+  <div class="resultGrid">
+   ${chosen.map((t,i)=>`
+    <div class="taskCard">
+     <div class="taskHead"><strong>Task ${i+1}</strong><span class="tag">${t.boss}</span></div>
+     <div class="kv">
+      <div class="k">Task #</div><div class="v">${t.id}</div>
+      <div class="k">Points</div><div class="v">${t.points}</div>
+     </div>
+     <div class="desc">${t.desc}</div>
+    </div>`).join("")}
+  </div>`;
+}
 
-  function normalizeTierMap(perks){
-    const tiers = loadTiers();
-    const names = new Set(perks.map(p => p.name));
-    for (const p of perks){
-      if (!(p.name in tiers)) tiers[p.name] = null;
-      const v = tiers[p.name];
-      if (typeof v === "number"){
-        if (v < 1) tiers[p.name] = null;
-        if (v > p.maxTier) tiers[p.name] = p.maxTier;
-      }
-    }
-    for (const k of Object.keys(tiers)){
-      if (!names.has(k)) delete tiers[k];
-    }
-    saveTiers(tiers);
-    return tiers;
-  }
+function renderBosses(){
+ const list=document.getElementById("bossList");
+ list.innerHTML="";
+ [...new Set(tasks.map(t=>t.boss))].forEach(b=>{
+  const label=document.createElement("label");
+  label.className="bossItem";
+  const cb=document.createElement("input");
+  cb.type="checkbox";
+  cb.checked=enabledBosses.has(b);
+  cb.onchange=()=>{cb.checked?enabledBosses.add(b):enabledBosses.delete(b);saveAll();}
+  label.append(cb,document.createElement("span"));
+  label.lastChild.textContent=b;
+  list.appendChild(label);
+ });
+}
 
-  function normalizeFilterMap(perks){
-    const f = loadFilters();
-    const names = new Set(perks.map(p => p.name));
-    for (const p of perks){
-      if (!(p.name in f)) f[p.name] = true; // enabled by default
-    }
-    for (const k of Object.keys(f)){
-      if (!names.has(k)) delete f[k];
-    }
-    saveFilters(f);
-    return f;
-  }
+function renderLog(){
+ document.getElementById("logCount").textContent=log.length;
+ document.getElementById("logBody").innerHTML=log.map(r=>`
+  <tr>
+   <td>${new Date(r.time).toLocaleString()}</td>
+   <td><strong>${r.boss}</strong></td>
+   <td>${r.id}</td>
+   <td>${r.points}</td>
+   <td>${r.desc}</td>
+  </tr>`).join("");
+}
 
-  function tierDisplay(cur, maxTier){
-    return (cur === null) ? `None / ${maxTier}` : `${cur} / ${maxTier}`;
-  }
+function clearLog(){
+ log=[];
+ saveAll();
+ renderLog();
+}
 
-  function getPool(perks, tiers, filters){
-    // Filter checkbox exclusions first
-    let pool = perks.filter(p => filters[p.name] !== false);
+function parseTasks(text){
+ return text.split("\n").map(l=>l.split("\t")).filter(p=>p.length>=4)
+ .map(p=>({id:p[0],points:+p[1],boss:p[2],desc:p.slice(3).join(" ")}));
+}
 
-    // Then maxed exclusion (optional)
-    const includeMaxed = el("includeMaxed").checked;
-    if (!includeMaxed){
-      pool = pool.filter(p => {
-        const cur = tiers[p.name];
-        return !(typeof cur === "number" && cur >= p.maxTier);
-      });
-    }
-    return pool;
-  }
+function loadTasks(){
+ tasks=parseTasks(document.getElementById("taskInput").value);
+ enabledBosses=new Set(tasks.map(t=>t.boss));
+ saveAll();
+ renderBosses();
+}
 
-  function setResult(text){
-    el("resultBox").textContent = text;
-  }
+function exportTasks(){
+ return tasks.map(t=>`${t.id}\t${t.points}\t${t.boss}\t${t.desc}`).join("\n");
+}
 
-  function renderStats(){
-    const perks = parsePerks(el("perkInput").value);
-    const tiers = normalizeTierMap(perks);
-    const filters = normalizeFilterMap(perks);
-    const pool = getPool(perks, tiers, filters);
-    const maxed = perks.filter(p => typeof tiers[p.name] === "number" && tiers[p.name] >= p.maxTier).length;
-    el("statsBox").textContent = `Pool: ${pool.length}/${perks.length} • Maxed: ${maxed}`;
-  }
+function resetFilters(){
+ enabledBosses=new Set(tasks.map(t=>t.boss));
+ saveAll();
+ renderBosses();
+}
 
-  function renderPerkTable(){
-    const perks = parsePerks(el("perkInput").value);
-    const tiers = normalizeTierMap(perks);
-    normalizeFilterMap(perks);
-
-    const q = el("search").value.trim().toLowerCase();
-    const body = el("perkBody");
-    body.innerHTML = "";
-
-    for (const p of perks){
-      if (q && !p.name.toLowerCase().includes(q)) continue;
-
-      const tr = document.createElement("tr");
-      const cur = tiers[p.name];
-
-      const btns = [];
-      btns.push(`<span class="tierBtn ${cur===null?"active":""}" data-perk="${p.name}" data-tier="">None</span>`);
-      for (let t=1; t<=p.maxTier; t++){
-        btns.push(`<span class="tierBtn ${cur===t?"active":""}" data-perk="${p.name}" data-tier="${t}">${t}</span>`);
-      }
-
-      tr.innerHTML = `
-        <td><b>${p.name}</b><div class="muted tiny">w=${p.weight}</div></td>
-        <td>${p.maxTier}</td>
-        <td><div class="tiers">${btns.join("")}</div></td>
-      `;
-      body.appendChild(tr);
-    }
-
-    body.querySelectorAll(".tierBtn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const perkName = btn.getAttribute("data-perk");
-        const tierStr = btn.getAttribute("data-tier");
-        const perks2 = parsePerks(el("perkInput").value);
-        const tiers2 = normalizeTierMap(perks2);
-        tiers2[perkName] = tierStr === "" ? null : Number(tierStr);
-        saveTiers(tiers2);
-        renderPerkTable();
-        renderStats();
-      });
-    });
-  }
-
-  function renderFilters(){
-    const perks = parsePerks(el("perkInput").value);
-    normalizeTierMap(perks);
-    const filters = normalizeFilterMap(perks);
-
-    const body = el("filterBody");
-    body.innerHTML = "";
-
-    for (const p of perks){
-      const tr = document.createElement("tr");
-      const checked = filters[p.name] !== false;
-      tr.innerHTML = `
-        <td><input type="checkbox" data-perk="${p.name}" ${checked ? "checked" : ""}></td>
-        <td><b>${p.name}</b></td>
-      `;
-      body.appendChild(tr);
-    }
-
-    body.querySelectorAll("input[type=checkbox][data-perk]").forEach(cb => {
-      cb.addEventListener("change", () => {
-        const perkName = cb.getAttribute("data-perk");
-        const f = loadFilters();
-        f[perkName] = cb.checked;
-        saveFilters(f);
-        renderStats();
-      });
-    });
-  }
-
-  function renderLog(){
-    const log = loadLog();
-    el("logCount").textContent = `${log.length} entr${log.length===1?"y":"ies"}`;
-
-    const body = el("logBody");
-    body.innerHTML = "";
-
-    for (const e of log.slice().reverse()){
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${e.time}</td>
-        <td><b>${e.perk}</b></td>
-        <td>${e.tierAtRoll}</td>
-        <td>${e.weight}</td>
-      `;
-      body.appendChild(tr);
-    }
-  }
-
-  function rollN(nWanted){
-    const perks = parsePerks(el("perkInput").value);
-    if (!perks.length){ setResult("Add perks in Advanced → Save."); return; }
-
-    const tiers = normalizeTierMap(perks);
-    const filters = normalizeFilterMap(perks);
-
-    const pool = getPool(perks, tiers, filters);
-    if (!pool.length){
-      setResult("No perks available in pool. (All filtered out or maxed.)");
-      return;
-    }
-
-    // No duplicates within the same click
-    const tempPool = pool.slice();
-    const n = Math.min(nWanted, tempPool.length);
-
-    const results = [];
-    const log = loadLog();
-
-    for (let i=0; i<n; i++){
-      const picked = weightedPick(tempPool);
-      const idx = tempPool.findIndex(p => p.name === picked.name);
-      if (idx >= 0) tempPool.splice(idx, 1);
-
-      const cur = tiers[picked.name] ?? null;
-      const tdisp = tierDisplay(cur, picked.maxTier);
-
-      results.push(`${i+1}) ${picked.name}  —  Tier ${tdisp}`);
-
-      log.push({
-        time: nowString(),
-        perk: picked.name,
-        tierAtRoll: tdisp,
-        weight: picked.weight
-      });
-    }
-
-    if (n < nWanted){
-      results.push(`\n(Only ${n} unique perk(s) available in pool)`);
-    }
-
-    saveLog(log);
-    el("rolledTitle").textContent = `Rolled ${n} task${n===1?"":"s"}`;
-    setResult(results.join("\n"));
-
-    renderLog();
-    renderStats();
-  }
-
-  function resetAll(){
-    // Resets "session output" without wiping perk list
-    setResult("Click Roll 1 / 2 / 3");
-    el("rolledTitle").textContent = "Rolled 0 tasks";
-  }
-
-  function resetTiers(){
-    const perks = parsePerks(el("perkInput").value);
-    const map = {};
-    for (const p of perks) map[p.name] = null;
-    saveTiers(map);
-    setResult("Tiers reset.");
-    renderPerkTable();
-    renderStats();
-  }
-
-  function clearLog(){
-    saveLog([]);
-    setResult("Log cleared.");
-    renderLog();
-  }
-
-  function exportJson(){
-    const log = loadLog();
-    downloadFile("perk-roll-log.json", JSON.stringify(log, null, 2), "application/json");
-  }
-
-  function exportCsv(){
-    const log = loadLog();
-    const header = ["time","perk","tierAtRoll","weight"];
-    const rows = [header.join(",")];
-    for (const e of log){
-      rows.push([csvCell(e.time), csvCell(e.perk), csvCell(e.tierAtRoll), csvCell(e.weight)].join(","));
-    }
-    downloadFile("perk-roll-log.csv", rows.join("\n"), "text/csv");
-  }
-
-  function csvCell(v){
-    const s = String(v ?? "");
-    if (/[,"\n]/.test(s)) return `"${s.replaceAll('"','""')}"`;
-    return s;
-  }
-
-  function downloadFile(filename, text, mime){
-    const blob = new Blob([text], { type: mime });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
-
-  function wipeAll(){
-    localStorage.removeItem(LS_PERKS);
-    localStorage.removeItem(LS_TIERS);
-    localStorage.removeItem(LS_LOG);
-    localStorage.removeItem(LS_FILTERS);
-    el("perkInput").value = "";
-    el("search").value = "";
-    setResult("Wiped everything.");
-    renderPerkTable();
-    renderFilters();
-    renderStats();
-    renderLog();
-  }
-
-  // Wire up UI
-  el("roll1").addEventListener("click", () => rollN(1));
-  el("roll2").addEventListener("click", () => rollN(2));
-  el("roll3").addEventListener("click", () => rollN(3));
-  el("resetBtn").addEventListener("click", resetAll);
-
-  el("saveBtn").addEventListener("click", () => {
-    savePerkText();
-    const perks = parsePerks(el("perkInput").value);
-    normalizeTierMap(perks);
-    normalizeFilterMap(perks);
-    setResult("Saved perk list.");
-    renderPerkTable();
-    renderFilters();
-    renderStats();
-  });
-
-  el("search").addEventListener("input", renderPerkTable);
-  el("includeMaxed").addEventListener("change", renderStats);
-
-  el("enableAll").addEventListener("click", () => {
-    const perks = parsePerks(el("perkInput").value);
-    const f = normalizeFilterMap(perks);
-    for (const p of perks) f[p.name] = true;
-    saveFilters(f);
-    renderFilters();
-    renderStats();
-  });
-
-  el("disableAll").addEventListener("click", () => {
-    const perks = parsePerks(el("perkInput").value);
-    const f = normalizeFilterMap(perks);
-    for (const p of perks) f[p.name] = false;
-    saveFilters(f);
-    renderFilters();
-    renderStats();
-  });
-
-  el("resetTiersBtn").addEventListener("click", resetTiers);
-  el("clearLogBtn").addEventListener("click", clearLog);
-
-  el("loadSampleBtn").addEventListener("click", () => {
-    el("perkInput").value =
-`Gambler's Fallacy | 3 | 3
-Fuck Off | 2 | 2
-Noob Tube | 1 | 1
-Perk Purge | 1 | 1
-Blue Shell | 1 | 1
-Thickfreakness | 3 | 2
-Momentum Multiplier | 3 | 4`;
-    savePerkText();
-    // keep existing tiers/filters/log unless you want a hard reset:
-    // saveTiers({}); saveFilters({}); saveLog([]);
-    setResult("Loaded sample (click Save).");
-    renderPerkTable();
-    renderFilters();
-    renderStats();
-  });
-
-  el("exportJsonBtn").addEventListener("click", exportJson);
-  el("exportCsvBtn").addEventListener("click", exportCsv);
-  el("wipeAllBtn").addEventListener("click", wipeAll);
-
-  // Init
-  loadPerkText();
-  const perksInit = parsePerks(el("perkInput").value);
-  normalizeTierMap(perksInit);
-  normalizeFilterMap(perksInit);
-  renderPerkTable();
-  renderFilters();
-  renderStats();
-  renderLog();
+loadAll();
 </script>
+
 </body>
 </html>
