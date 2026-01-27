@@ -255,9 +255,57 @@ function renderBosses(){
   });
 }
 
-function loadTasks(){
-  alert("Task parsing can be added next — core rolling is complete.");
+<script>
+function parseTasksFromText(text){
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length);
+  const parsed = [];
+
+  for (const line of lines){
+    // supports pipe |, tab, or comma
+    let parts;
+    if (line.includes("|")) parts = line.split("|").map(s => s.trim());
+    else if (line.includes("\t")) parts = line.split("\t").map(s => s.trim());
+    else parts = line.split(",").map(s => s.trim());
+
+    if (parts.length < 4) continue;
+
+    const id = parts[0];
+    const points = Number(String(parts[1]).replace(/[^\d.-]/g,"")) || 0;
+    const boss = parts[2];
+    const desc = parts.slice(3).join(" | "); // keeps extra separators inside description
+
+    if (!boss || !desc) continue;
+
+    parsed.push({
+      id: isNaN(Number(id)) ? id : Number(id),
+      points,
+      boss: boss.trim(),
+      desc: desc.trim()
+    });
+  }
+
+  return parsed;
 }
+
+function loadTasks(){
+  const text = document.getElementById("taskInput").value;
+  const parsed = parseTasksFromText(text);
+
+  if (!parsed.length){
+    document.getElementById("result").innerHTML =
+      "Could not parse tasks. Paste as 4 columns (tab-separated) or use: # | points | boss | description";
+    return;
+  }
+
+  tasks = parsed;
+  enabledBosses = new Set(tasks.map(t => t.boss)); // enable all bosses by default
+  renderBosses();
+
+  document.getElementById("result").innerHTML =
+    `Loaded <b>${tasks.length}</b> tasks.`;
+}
+</script>
+
 
 function resetAll(){
   enabledBosses = new Set(tasks.map(t=>t.boss));
@@ -270,3 +318,4 @@ renderBosses();
 
 </body>
 </html>
+
