@@ -1,519 +1,343 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Task Roller</title>
-  <style>
-    :root{
-      --bg:#0f1115;
-      --text:#eef2ff;
-      --muted:#a8b0c7;
-      --accent:#ff7a18;
-      --border:rgba(255,255,255,.10);
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      background: linear-gradient(180deg, #0b0d12, var(--bg));
-      color:var(--text);
-    }
-    header{
-      padding:20px 18px 10px;
-      border-bottom:1px solid var(--border);
-      background: rgba(0,0,0,.25);
-      position: sticky;
-      top:0;
-      z-index: 10;
-    }
-    h1{
-      margin:0;
-      font-size:18px;
-      display:flex;
-      align-items:center;
-      gap:10px;
-    }
-    .spacer{flex:1}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Task Roller</title>
 
-    main{
-      max-width:1100px;
-      margin: 0 auto;
-      padding: 18px;
-      display:grid;
-      grid-template-columns: 1fr 360px;
-      gap:14px;
-    }
-    @media (max-width: 980px){
-      main{grid-template-columns: 1fr}
-    }
+<style>
+:root{
+  --bg:#0f1115;
+  --panel:#171a22;
+  --text:#eef2ff;
+  --muted:#a8b0c7;
+  --accent:#ff7a18;
+  --border:rgba(255,255,255,.10);
+}
 
-    .card{
-      background: rgba(23,26,34,.85);
-      border:1px solid var(--border);
-      border-radius:16px;
-      padding:14px;
-    }
-    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  background: linear-gradient(180deg,#0b0d12,var(--bg));
+  color:var(--text);
+}
 
-    button{
-      cursor:pointer;
-      border:1px solid rgba(255,255,255,.14);
-      background: linear-gradient(180deg, rgba(255,122,24,.95), rgba(255,122,24,.75));
-      color:#0b0d12;
-      font-weight:800;
-      padding:10px 14px;
-      border-radius:12px;
-    }
-    button.secondary{
-      background: rgba(255,255,255,.06);
-      color: var(--text);
-    }
+header{
+  padding:20px;
+  border-bottom:1px solid var(--border);
+  background:rgba(0,0,0,.3);
+  position:sticky;
+  top:0;
+}
 
-    .divider{height:1px; background:var(--border); margin:12px 0}
+h1{
+  margin:0;
+  font-size:18px;
+  display:flex;
+  align-items:center;
+}
+.spacer{flex:1}
 
-    .result{
-      background: rgba(0,0,0,.28);
-      border:1px dashed rgba(255,255,255,.18);
-      border-radius:16px;
-      padding:14px;
-    }
+main{
+  max-width:1100px;
+  margin:0 auto;
+  padding:18px;
+  display:grid;
+  grid-template-columns:1fr 360px;
+  gap:14px;
+}
+@media(max-width:980px){ main{grid-template-columns:1fr} }
 
-    .resultGrid{
-      display:grid;
-      gap:10px;
-      margin-top:10px;
-    }
+.card{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:14px;
+}
 
-    .taskCard{
-      background: rgba(255,255,255,.04);
-      border:1px solid rgba(255,255,255,.10);
-      border-radius:14px;
-      padding:12px;
-    }
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 
-    .taskHead{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      flex-wrap:wrap;
-    }
+button{
+  cursor:pointer;
+  border:1px solid rgba(255,255,255,.15);
+  background:linear-gradient(180deg,#ff8a2a,#ff6a00);
+  color:#111;
+  font-weight:800;
+  padding:10px 14px;
+  border-radius:12px;
+}
+button.secondary{
+  background:rgba(255,255,255,.06);
+  color:var(--text);
+}
 
-    .tag{
-      font-size:12px;
-      padding:3px 9px;
-      border-radius:999px;
-      background: rgba(255,122,24,.18);
-      border:1px solid rgba(255,122,24,.25);
-      font-weight:800;
-    }
+.divider{height:1px;background:var(--border);margin:12px 0}
 
-    .kv{
-      display:grid;
-      grid-template-columns: 100px 1fr;
-      gap:6px 10px;
-      margin-top:10px;
-    }
-    .k{color:var(--muted); font-size:12px}
-    .v{font-weight:800}
+.result{
+  background:rgba(0,0,0,.35);
+  border:1px dashed rgba(255,255,255,.18);
+  border-radius:16px;
+  padding:14px;
+}
 
-    .desc{
-      margin-top:10px;
-      padding-top:10px;
-      border-top:1px solid var(--border);
-      font-weight:700;
-      line-height:1.35;
-    }
+.resultGrid{display:grid;gap:10px;margin-top:10px}
 
-    .bossList{
-      display:grid;
-      gap:8px;
-      max-height: 340px;
-      overflow:auto;
-      padding-right:4px;
-    }
-    .bossItem{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:10px;
-      border-radius:12px;
-      border:1px solid rgba(255,255,255,.10);
-      background: rgba(255,255,255,.04);
-    }
-    .bossItem input{transform: scale(1.15)}
-    .bossItem span{font-weight:800}
+.taskCard{
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:14px;
+  padding:12px;
+}
 
-    textarea{
-      width:100%;
-      background: rgba(0,0,0,.25);
-      color: var(--text);
-      border:1px solid var(--border);
-      border-radius:12px;
-      padding:10px;
-      min-height:150px;
-      resize:vertical;
-      outline:none;
-    }
+.taskHead{display:flex;gap:10px;align-items:center}
+.tag{
+  font-size:12px;
+  padding:3px 9px;
+  border-radius:999px;
+  background:rgba(255,122,24,.2);
+  font-weight:800;
+}
 
-    .hint{
-      margin-top:8px;
-      font-size:12px;
-      color:var(--muted);
-      line-height:1.35;
-    }
+.kv{
+  display:grid;
+  grid-template-columns:100px 1fr;
+  gap:6px 10px;
+  margin-top:10px;
+}
+.k{color:var(--muted);font-size:12px}
+.v{font-weight:800}
 
-    .topNote{
-      font-size:11px;
-      color:var(--muted);
-    }
-  </style>
+.desc{
+  margin-top:10px;
+  padding-top:10px;
+  border-top:1px solid var(--border);
+  font-weight:700;
+}
+
+textarea{
+  width:100%;
+  background:rgba(0,0,0,.3);
+  color:var(--text);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:10px;
+  min-height:150px;
+}
+
+.bossList{display:grid;gap:8px;max-height:320px;overflow:auto}
+.bossItem{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  padding:10px;
+  border-radius:12px;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.1);
+}
+.bossItem input{transform:scale(1.15)}
+.bossItem span{font-weight:800}
+
+/* LOG */
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{padding:10px;border-bottom:1px solid rgba(255,255,255,.08)}
+th{color:var(--muted);text-align:left;background:rgba(0,0,0,.35);position:sticky;top:0}
+tbody tr:hover{background:rgba(255,255,255,.04)}
+</style>
 </head>
+
 <body>
 
 <header>
   <h1>
     Task Roller
     <span class="spacer"></span>
-    <span class="topNote" id="saveStatus">Not saved yet</span>
+    <span style="font-size:11px;color:var(--muted)">Saved locally</span>
   </h1>
 </header>
 
 <main>
-  <section>
-    <div class="card">
-      <div class="row">
-        <button id="roll1">Roll 1</button>
-        <button id="roll2">Roll 2</button>
-        <button id="roll3">Roll 3</button>
-        <span class="spacer"></span>
-        <button class="secondary" id="reset">Reset</button>
-      </div>
 
-      <div class="divider"></div>
-
-      <div class="result" id="result">
-        Click a roll button to generate tasks.
-      </div>
+<section>
+  <div class="card">
+    <div class="row">
+      <button onclick="roll(1)">Roll 1</button>
+      <button onclick="roll(2)">Roll 2</button>
+      <button onclick="roll(3)">Roll 3</button>
+      <span class="spacer"></span>
+      <button class="secondary" onclick="resetFilters()">Reset Filters</button>
     </div>
 
-    <div class="card" style="margin-top:14px">
-      <div style="font-weight:900">Tasks</div>
-      <div class="hint">
-        Paste rows from your spreadsheet (4 columns): <b>#</b>, <b>Points</b>, <b>Boss</b>, <b>Task</b>.
-        Tabs (copy/paste), pipes <b>|</b>, or commas all work.
-      </div>
+    <div class="divider"></div>
 
-      <textarea id="taskInput" spellcheck="false"></textarea>
-
-      <div class="row" style="margin-top:10px">
-        <button class="secondary" id="load">Load + Save Tasks</button>
-        <button class="secondary" id="export">Export Tasks</button>
-        <span class="spacer"></span>
-        <button class="secondary" id="clearSaved" title="Deletes saved tasks/filters from this browser">Clear Saved</button>
-      </div>
-
-      <div class="hint">
-        After you click <b>Load + Save Tasks</b> once, the site remembers your tasks automatically on this browser/device.
-      </div>
+    <div class="result" id="result">
+      Click a roll button to generate tasks.
     </div>
-  </section>
+  </div>
 
-  <aside>
-    <div class="card">
-      <div style="font-weight:900">Boss Filters</div>
-      <div class="hint">Uncheck a boss to exclude it from rolls (I CBA).</div>
-
-      <div class="divider"></div>
-
-      <div class="row" style="margin-bottom:10px">
-        <button class="secondary" id="enableAll">Enable All</button>
-        <button class="secondary" id="disableAll">Disable All</button>
-      </div>
-
-      <div class="bossList" id="bossList"></div>
+  <!-- LOG -->
+  <div class="card" style="margin-top:14px">
+    <div class="row">
+      <strong>Log</strong>
+      <span class="spacer"></span>
+      <span style="font-size:12px;color:var(--muted)"><span id="logCount">0</span> entries</span>
     </div>
-  </aside>
+
+    <div class="divider"></div>
+
+    <div style="max-height:260px;overflow:auto;border-radius:12px;border:1px solid rgba(255,255,255,.1)">
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Boss</th>
+            <th>Task #</th>
+            <th>Points</th>
+            <th>Task</th>
+          </tr>
+        </thead>
+        <tbody id="logBody"></tbody>
+      </table>
+    </div>
+
+    <div class="row" style="margin-top:10px">
+      <button class="secondary" onclick="clearLog()">Clear Log</button>
+    </div>
+  </div>
+
+  <!-- TASK INPUT -->
+  <div class="card" style="margin-top:14px">
+    <strong>Tasks</strong>
+    <textarea id="taskInput"></textarea>
+    <div class="row" style="margin-top:10px">
+      <button class="secondary" onclick="loadTasks()">Load + Save Tasks</button>
+    </div>
+  </div>
+</section>
+
+<aside>
+  <div class="card">
+    <strong>Boss Filters</strong>
+    <div class="divider"></div>
+    <div class="bossList" id="bossList"></div>
+  </div>
+</aside>
+
 </main>
 
 <script>
-  // ===== Storage Keys =====
-  const STORAGE_TASKS = "taskRoller_tasks_v1";
-  const STORAGE_FILTERS = "taskRoller_enabledBosses_v1";
+const STORAGE_TASKS="tasks_v1";
+const STORAGE_FILTERS="filters_v1";
+const STORAGE_LOG="log_v1";
 
-  // ===== Defaults (used only if nothing is saved yet) =====
-  const DEFAULT_TASKS = [
-    {id:1, points:950, boss:"Abyssal Sire", desc:"Create a Bludgeon (3 Unsireds completes the task)"},
-    {id:2, points:315, boss:"Abyssal Sire", desc:"Obtain 1 Unsired"},
-    {id:3, points:2100, boss:"Abyssal Sire", desc:"Obtain an Abyssal Dagger (Abby Demons is okay)"},
-    {id:4, points:75, boss:"Abyssal Sire", desc:"3 unique people complete the CA: Perfect Sire"},
-    {id:5, points:4500, boss:"Alchemical Hydra", desc:"Obtain a Hydra Claw"},
-    {id:6, points:5200, boss:"Alchemical Hydra", desc:"Create a Dragon Hunter Lance (Claw + Zammy Spear)"},
-    {id:7, points:2400, boss:"Alchemical Hydra", desc:"Create a Brimstone Ring"},
-    {id:8, points:100, boss:"Alchemical Hydra", desc:"2 unique people complete the CA: No Pressure"},
-    {id:9, points:1000, boss:"Alchemical Hydra", desc:"Fill 3 Hydra collection log slots (dupes count)"},
-  ];
+let tasks=[
+ {id:1,points:950,boss:"Abyssal Sire",desc:"Create a Bludgeon"},
+ {id:2,points:315,boss:"Abyssal Sire",desc:"Obtain 1 Unsired"},
+ {id:3,points:4500,boss:"Alchemical Hydra",desc:"Obtain Hydra Claw"}
+];
 
-  // ===== App State =====
-  let tasks = [];
-  let enabledBosses = new Set();
+let enabledBosses=new Set();
+let log=[];
 
-  // ===== DOM helpers =====
-  const $ = (id) => document.getElementById(id);
+function saveAll(){
+ localStorage.setItem(STORAGE_TASKS,JSON.stringify(tasks));
+ localStorage.setItem(STORAGE_FILTERS,JSON.stringify([...enabledBosses]));
+ localStorage.setItem(STORAGE_LOG,JSON.stringify(log));
+}
 
-  function setStatus(text){
-    $("saveStatus").textContent = text;
-  }
+function loadAll(){
+ tasks=JSON.parse(localStorage.getItem(STORAGE_TASKS))||tasks;
+ enabledBosses=new Set(JSON.parse(localStorage.getItem(STORAGE_FILTERS))||tasks.map(t=>t.boss));
+ log=JSON.parse(localStorage.getItem(STORAGE_LOG))||[];
+ renderBosses();
+ renderLog();
+ document.getElementById("taskInput").value=exportTasks();
+}
 
-  function uniqBosses(list){
-    return [...new Set(list.map(t => (t.boss || "").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
-  }
+function roll(n){
+ const eligible=tasks.filter(t=>enabledBosses.has(t.boss));
+ if(!eligible.length) return;
+ const chosen=[...eligible].sort(()=>0.5-Math.random()).slice(0,n);
 
-  // ===== Save / Load =====
-  function saveAll(){
-    localStorage.setItem(STORAGE_TASKS, JSON.stringify(tasks));
-    localStorage.setItem(STORAGE_FILTERS, JSON.stringify([...enabledBosses]));
-    setStatus("Saved locally");
-  }
+ const now=new Date().toISOString();
+ chosen.forEach(t=>{
+   log.unshift({time:now,...t});
+ });
 
-  function loadAll(){
-    const savedTasks = localStorage.getItem(STORAGE_TASKS);
-    const savedFilters = localStorage.getItem(STORAGE_FILTERS);
+ saveAll();
+ renderLog();
 
-    if (savedTasks){
-      try{
-        const parsed = JSON.parse(savedTasks);
-        if (Array.isArray(parsed) && parsed.length){
-          tasks = parsed;
-        } else {
-          tasks = [...DEFAULT_TASKS];
-        }
-      } catch {
-        tasks = [...DEFAULT_TASKS];
-      }
-    } else {
-      tasks = [...DEFAULT_TASKS];
-    }
+ document.getElementById("result").innerHTML=`
+  <div class="resultGrid">
+   ${chosen.map((t,i)=>`
+    <div class="taskCard">
+     <div class="taskHead"><strong>Task ${i+1}</strong><span class="tag">${t.boss}</span></div>
+     <div class="kv">
+      <div class="k">Task #</div><div class="v">${t.id}</div>
+      <div class="k">Points</div><div class="v">${t.points}</div>
+     </div>
+     <div class="desc">${t.desc}</div>
+    </div>`).join("")}
+  </div>`;
+}
 
-    const bossesNow = uniqBosses(tasks);
+function renderBosses(){
+ const list=document.getElementById("bossList");
+ list.innerHTML="";
+ [...new Set(tasks.map(t=>t.boss))].forEach(b=>{
+  const label=document.createElement("label");
+  label.className="bossItem";
+  const cb=document.createElement("input");
+  cb.type="checkbox";
+  cb.checked=enabledBosses.has(b);
+  cb.onchange=()=>{cb.checked?enabledBosses.add(b):enabledBosses.delete(b);saveAll();}
+  label.append(cb,document.createElement("span"));
+  label.lastChild.textContent=b;
+  list.appendChild(label);
+ });
+}
 
-    if (savedFilters){
-      try{
-        const parsed = JSON.parse(savedFilters);
-        enabledBosses = new Set(Array.isArray(parsed) ? parsed : bossesNow);
-      } catch {
-        enabledBosses = new Set(bossesNow);
-      }
-    } else {
-      enabledBosses = new Set(bossesNow);
-    }
+function renderLog(){
+ document.getElementById("logCount").textContent=log.length;
+ document.getElementById("logBody").innerHTML=log.map(r=>`
+  <tr>
+   <td>${new Date(r.time).toLocaleString()}</td>
+   <td><strong>${r.boss}</strong></td>
+   <td>${r.id}</td>
+   <td>${r.points}</td>
+   <td>${r.desc}</td>
+  </tr>`).join("");
+}
 
-    // Remove any enabled bosses that don't exist anymore; leave new bosses enabled by default
-    const bossSet = new Set(bossesNow);
-    enabledBosses = new Set([...enabledBosses].filter(b => bossSet.has(b)));
+function clearLog(){
+ log=[];
+ saveAll();
+ renderLog();
+}
 
-    // If no saved tasks existed, we haven’t "saved yet"—otherwise mark saved.
-    setStatus(savedTasks ? "Saved locally" : "Not saved yet");
+function parseTasks(text){
+ return text.split("\n").map(l=>l.split("\t")).filter(p=>p.length>=4)
+ .map(p=>({id:p[0],points:+p[1],boss:p[2],desc:p.slice(3).join(" ")}));
+}
 
-    // Put current tasks into textbox for visibility/editing
-    $("taskInput").value = exportTasksToText();
+function loadTasks(){
+ tasks=parseTasks(document.getElementById("taskInput").value);
+ enabledBosses=new Set(tasks.map(t=>t.boss));
+ saveAll();
+ renderBosses();
+}
 
-    renderBosses();
-  }
+function exportTasks(){
+ return tasks.map(t=>`${t.id}\t${t.points}\t${t.boss}\t${t.desc}`).join("\n");
+}
 
-  function clearSaved(){
-    localStorage.removeItem(STORAGE_TASKS);
-    localStorage.removeItem(STORAGE_FILTERS);
-    tasks = [...DEFAULT_TASKS];
-    enabledBosses = new Set(uniqBosses(tasks));
-    $("taskInput").value = exportTasksToText();
-    renderBosses();
-    $("result").textContent = "Cleared saved data. Back to default sample tasks.";
-    setStatus("Not saved yet");
-  }
+function resetFilters(){
+ enabledBosses=new Set(tasks.map(t=>t.boss));
+ saveAll();
+ renderBosses();
+}
 
-  // ===== Parsing / Export =====
-  function parseTasksFromText(text){
-    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length && !l.startsWith("#"));
-    const parsed = [];
-
-    for (const line of lines){
-      let parts;
-      if (line.includes("|")) parts = line.split("|").map(s => s.trim());
-      else if (line.includes("\t")) parts = line.split("\t").map(s => s.trim());
-      else parts = line.split(",").map(s => s.trim());
-
-      if (parts.length < 4) continue;
-
-      const idRaw = parts[0];
-      const pointsRaw = parts[1];
-      const boss = parts[2];
-      const desc = parts.slice(3).join(" | "); // keep extra separators in description
-
-      const points = Number(String(pointsRaw).replace(/[^\d.-]/g,""));
-      const idNum = Number(String(idRaw).replace(/[^\d.-]/g,""));
-
-      if (!boss || !desc) continue;
-
-      parsed.push({
-        id: Number.isFinite(idNum) && String(idRaw).trim() !== "" ? idNum : String(idRaw).trim(),
-        points: Number.isFinite(points) ? points : 0,
-        boss: boss.trim(),
-        desc: desc.trim()
-      });
-    }
-
-    return parsed;
-  }
-
-  function exportTasksToText(){
-    return tasks.map(t => `${t.id}\t${t.points}\t${t.boss}\t${t.desc}`).join("\n");
-  }
-
-  // ===== Boss Filters UI =====
-  function renderBosses(){
-    const list = $("bossList");
-    list.innerHTML = "";
-
-    const bosses = uniqBosses(tasks);
-    if (!bosses.length){
-      list.innerHTML = "<div class='hint'>No bosses found (load tasks first).</div>";
-      return;
-    }
-
-    for (const boss of bosses){
-      const label = document.createElement("label");
-      label.className = "bossItem";
-
-      const cb = document.createElement("input");
-      cb.type = "checkbox";
-      cb.checked = enabledBosses.has(boss);
-
-      const name = document.createElement("span");
-      name.textContent = boss;
-
-      cb.onchange = () => {
-        if (cb.checked) enabledBosses.add(boss);
-        else enabledBosses.delete(boss);
-        saveAll();
-      };
-
-      label.appendChild(cb);
-      label.appendChild(name);
-      list.appendChild(label);
-    }
-  }
-
-  // ===== Rolling =====
-  function getEligibleTasks(){
-    return tasks.filter(t => enabledBosses.has(t.boss));
-  }
-
-  function roll(n){
-    const eligible = getEligibleTasks();
-    if (!eligible.length){
-      $("result").textContent = "No eligible tasks. Enable at least one boss.";
-      return;
-    }
-
-    // Shuffle (simple + fine for this use)
-    const shuffled = eligible.slice().sort(() => 0.5 - Math.random());
-    const chosen = shuffled.slice(0, Math.min(n, shuffled.length));
-
-    const totalPoints = chosen.reduce((sum,t)=>sum + (Number(t.points)||0), 0);
-
-    $("result").innerHTML = `
-      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-        <strong>Rolled ${chosen.length} task${chosen.length===1?"":"s"}</strong>
-        <span style="font-size:12px;color:var(--muted)">Total points: <b>${totalPoints}</b></span>
-      </div>
-      <div class="resultGrid">
-        ${chosen.map((t,i)=>`
-          <div class="taskCard">
-            <div class="taskHead">
-              <strong>Task ${i+1}</strong>
-              <span class="tag">${escapeHtml(t.boss)}</span>
-            </div>
-            <div class="kv">
-              <div class="k">Task #</div><div class="v">${escapeHtml(String(t.id))}</div>
-              <div class="k">Points</div><div class="v">${escapeHtml(String(t.points))}</div>
-            </div>
-            <div class="desc">${escapeHtml(t.desc)}</div>
-          </div>
-        `).join("")}
-      </div>
-    `;
-  }
-
-  function escapeHtml(str){
-    return String(str).replace(/[&<>"']/g, (m) => ({
-      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
-    }[m]));
-  }
-
-  // ===== Buttons =====
-  $("roll1").onclick = () => roll(1);
-  $("roll2").onclick = () => roll(2);
-  $("roll3").onclick = () => roll(3);
-
-  $("load").onclick = () => {
-    const text = $("taskInput").value;
-    const parsed = parseTasksFromText(text);
-
-    if (!parsed.length){
-      $("result").textContent = "Could not parse tasks. Paste 4 columns: #, Points, Boss, Task.";
-      return;
-    }
-
-    tasks = parsed;
-
-    // enable all bosses by default after load
-    enabledBosses = new Set(uniqBosses(tasks));
-
-    // save immediately
-    saveAll();
-
-    renderBosses();
-    $("result").innerHTML = `Loaded and saved <b>${tasks.length}</b> tasks.`;
-  };
-
-  $("export").onclick = async () => {
-    const text = exportTasksToText();
-    try{
-      await navigator.clipboard.writeText(text);
-      $("result").innerHTML = "Export copied to clipboard.";
-    } catch {
-      $("taskInput").value = text;
-      $("taskInput").focus();
-      $("taskInput").select();
-      $("result").innerHTML = "Clipboard blocked. Tasks are selected in the textbox — press Ctrl+C.";
-    }
-  };
-
-  $("reset").onclick = () => {
-    // Reset filters only (keep tasks)
-    enabledBosses = new Set(uniqBosses(tasks));
-    saveAll();
-    renderBosses();
-    $("result").textContent = "Boss filters reset (all enabled).";
-  };
-
-  $("enableAll").onclick = () => {
-    enabledBosses = new Set(uniqBosses(tasks));
-    saveAll();
-    renderBosses();
-  };
-
-  $("disableAll").onclick = () => {
-    enabledBosses.clear();
-    saveAll();
-    renderBosses();
-  };
-
-  $("clearSaved").onclick = () => clearSaved();
-
-  // ===== Boot =====
-  loadAll();
+loadAll();
 </script>
 
 </body>
