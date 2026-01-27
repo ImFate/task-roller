@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Task Roller</title>
 
-<!-- Perk Wars favicon -->
 <link rel="icon" type="image/png" href="favicon.png">
 
 <style>
@@ -14,7 +13,6 @@
   --panel:#171a22;
   --text:#eef2ff;
   --muted:#a8b0c7;
-  --accent:#ff7a18;
   --border:rgba(255,255,255,.10);
 }
 
@@ -64,7 +62,7 @@ main{
 button{
   cursor:pointer;
   border:1px solid rgba(255,255,255,.15);
-  background: #ffff00;
+  background:#ffff00;
   color:#111;
   font-weight:800;
   padding:10px 14px;
@@ -90,10 +88,25 @@ button.secondary{
   background:rgba(255,255,255,.04);
   border:1px solid rgba(255,255,255,.1);
   border-radius:14px;
-  padding:12px;
+  padding:14px;
 }
 
-.taskHead{display:flex;gap:10px;align-items:center}
+.taskHead{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+}
+
+.pointsBadge{
+  font-size:18px;
+  font-weight:900;
+  padding:6px 12px;
+  border-radius:999px;
+  background:#ffff00;
+  color:#111;
+}
+
 .tag{
   font-size:12px;
   padding:3px 9px;
@@ -102,18 +115,9 @@ button.secondary{
   font-weight:800;
 }
 
-.kv{
-  display:grid;
-  grid-template-columns:100px 1fr;
-  gap:6px 10px;
-  margin-top:10px;
-}
-.k{color:var(--muted);font-size:12px}
-.v{font-weight:800}
-
 .desc{
-  margin-top:10px;
-  padding-top:10px;
+  margin-top:12px;
+  padding-top:12px;
   border-top:1px solid var(--border);
   font-weight:700;
 }
@@ -183,7 +187,9 @@ tbody tr:hover{background:rgba(255,255,255,.04)}
     <div class="row">
       <strong>Log</strong>
       <span class="spacer"></span>
-      <span style="font-size:12px;color:var(--muted)"><span id="logCount">0</span> entries</span>
+      <span style="font-size:12px;color:var(--muted)">
+        <span id="logCount">0</span> entries
+      </span>
     </div>
 
     <div class="divider"></div>
@@ -260,9 +266,10 @@ function loadAll(){
 function roll(n){
  const eligible=tasks.filter(t=>enabledBosses.has(t.boss));
  if(!eligible.length) return;
- const chosen=[...eligible].sort(()=>0.5-Math.random()).slice(0,n);
 
+ const chosen=[...eligible].sort(()=>0.5-Math.random()).slice(0,n);
  const now=new Date().toISOString();
+
  chosen.forEach(t=>{
    log.unshift({time:now,...t});
  });
@@ -272,15 +279,15 @@ function roll(n){
 
  document.getElementById("result").innerHTML=`
   <div class="resultGrid">
-   ${chosen.map((t,i)=>`
+   ${chosen.map(t=>`
     <div class="taskCard">
-     <div class="taskHead"><strong>Task ${i+1}</strong><span class="tag">${t.boss}</span></div>
-     <div class="kv">
-      <div class="k">Task #</div><div class="v">${t.id}</div>
-      <div class="k">Points</div><div class="v">${t.points}</div>
-     </div>
-     <div class="desc">${t.desc}</div>
-    </div>`).join("")}
+      <div class="taskHead">
+        <span class="tag">${t.boss}</span>
+        <span class="pointsBadge">${t.points} pts</span>
+      </div>
+      <div class="desc">${t.desc}</div>
+    </div>
+   `).join("")}
   </div>`;
 }
 
