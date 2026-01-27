@@ -7,14 +7,10 @@
   <style>
     :root{
       --bg:#0f1115;
-      --panel:#171a22;
       --text:#eef2ff;
       --muted:#a8b0c7;
       --accent:#ff7a18;
-      --accent2:#ffb86b;
       --border:rgba(255,255,255,.10);
-      --good:#35d07f;
-      --bad:#ff4d4d;
     }
     *{box-sizing:border-box}
     body{
@@ -126,6 +122,7 @@
       padding-top:10px;
       border-top:1px solid var(--border);
       font-weight:700;
+      line-height:1.35;
     }
 
     .bossList{
@@ -133,6 +130,7 @@
       gap:8px;
       max-height: 340px;
       overflow:auto;
+      padding-right:4px;
     }
     .bossItem{
       display:flex;
@@ -154,6 +152,20 @@
       border-radius:12px;
       padding:10px;
       min-height:150px;
+      resize:vertical;
+      outline:none;
+    }
+
+    .hint{
+      margin-top:8px;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.35;
+    }
+
+    .topNote{
+      font-size:11px;
+      color:var(--muted);
     }
   </style>
 </head>
@@ -163,7 +175,7 @@
   <h1>
     Task Roller
     <span class="spacer"></span>
-    <span style="font-size:11px;color:#aaa">Saved locally</span>
+    <span class="topNote" id="saveStatus">Not saved yet</span>
   </h1>
 </header>
 
@@ -171,11 +183,11 @@
   <section>
     <div class="card">
       <div class="row">
-        <button onclick="rollTasks(1)">Roll 1</button>
-        <button onclick="rollTasks(2)">Roll 2</button>
-        <button onclick="rollTasks(3)">Roll 3</button>
-        <div class="spacer"></div>
-        <button class="secondary" onclick="resetAll()">Reset</button>
+        <button id="roll1">Roll 1</button>
+        <button id="roll2">Roll 2</button>
+        <button id="roll3">Roll 3</button>
+        <span class="spacer"></span>
+        <button class="secondary" id="reset">Reset</button>
       </div>
 
       <div class="divider"></div>
@@ -187,9 +199,22 @@
 
     <div class="card" style="margin-top:14px">
       <div style="font-weight:900">Tasks</div>
-      <textarea id="taskInput"></textarea>
+      <div class="hint">
+        Paste rows from your spreadsheet (4 columns): <b>#</b>, <b>Points</b>, <b>Boss</b>, <b>Task</b>.
+        Tabs (copy/paste), pipes <b>|</b>, or commas all work.
+      </div>
+
+      <textarea id="taskInput" spellcheck="false"></textarea>
+
       <div class="row" style="margin-top:10px">
-        <button class="secondary" onclick="loadTasks()">Load Tasks</button>
+        <button class="secondary" id="load">Load + Save Tasks</button>
+        <button class="secondary" id="export">Export Tasks</button>
+        <span class="spacer"></span>
+        <button class="secondary" id="clearSaved" title="Deletes saved tasks/filters from this browser">Clear Saved</button>
+      </div>
+
+      <div class="hint">
+        After you click <b>Load + Save Tasks</b> once, the site remembers your tasks automatically on this browser/device.
       </div>
     </div>
   </section>
@@ -197,125 +222,299 @@
   <aside>
     <div class="card">
       <div style="font-weight:900">Boss Filters</div>
+      <div class="hint">Uncheck a boss to exclude it from rolls (I CBA).</div>
+
+      <div class="divider"></div>
+
+      <div class="row" style="margin-bottom:10px">
+        <button class="secondary" id="enableAll">Enable All</button>
+        <button class="secondary" id="disableAll">Disable All</button>
+      </div>
+
       <div class="bossList" id="bossList"></div>
     </div>
   </aside>
 </main>
 
 <script>
-let tasks = [
-  {id:1,points:950,boss:"Abyssal Sire",desc:"Create a Bludgeon (3 Unsireds completes the task)"},
-  {id:2,points:315,boss:"Abyssal Sire",desc:"Obtain 1 Unsired"},
-  {id:3,points:2100,boss:"Abyssal Sire",desc:"Obtain an Abyssal Dagger"},
-  {id:4,points:75,boss:"Abyssal Sire",desc:"3 unique people complete CA: Perfect Sire"},
-  {id:5,points:4500,boss:"Alchemical Hydra",desc:"Obtain a Hydra Claw"},
-  {id:6,points:5200,boss:"Alchemical Hydra",desc:"Create a Dragon Hunter Lance"},
-  {id:7,points:2400,boss:"Alchemical Hydra",desc:"Create a Brimstone Ring"},
-];
+  // ===== Storage Keys =====
+  const STORAGE_TASKS = "taskRoller_tasks_v1";
+  const STORAGE_FILTERS = "taskRoller_enabledBosses_v1";
 
-let enabledBosses = new Set(tasks.map(t=>t.boss));
+  // ===== Defaults (used only if nothing is saved yet) =====
+  const DEFAULT_TASKS = [
+    {id:1, points:950, boss:"Abyssal Sire", desc:"Create a Bludgeon (3 Unsireds completes the task)"},
+    {id:2, points:315, boss:"Abyssal Sire", desc:"Obtain 1 Unsired"},
+    {id:3, points:2100, boss:"Abyssal Sire", desc:"Obtain an Abyssal Dagger (Abby Demons is okay)"},
+    {id:4, points:75, boss:"Abyssal Sire", desc:"3 unique people complete the CA: Perfect Sire"},
+    {id:5, points:4500, boss:"Alchemical Hydra", desc:"Obtain a Hydra Claw"},
+    {id:6, points:5200, boss:"Alchemical Hydra", desc:"Create a Dragon Hunter Lance (Claw + Zammy Spear)"},
+    {id:7, points:2400, boss:"Alchemical Hydra", desc:"Create a Brimstone Ring"},
+    {id:8, points:100, boss:"Alchemical Hydra", desc:"2 unique people complete the CA: No Pressure"},
+    {id:9, points:1000, boss:"Alchemical Hydra", desc:"Fill 3 Hydra collection log slots (dupes count)"},
+  ];
 
-function rollTasks(n){
-  const eligible = tasks.filter(t=>enabledBosses.has(t.boss));
-  if(!eligible.length) return;
+  // ===== App State =====
+  let tasks = [];
+  let enabledBosses = new Set();
 
-  const shuffled = eligible.sort(()=>0.5-Math.random());
-  const chosen = shuffled.slice(0, Math.min(n, shuffled.length));
+  // ===== DOM helpers =====
+  const $ = (id) => document.getElementById(id);
 
-  document.getElementById("result").innerHTML = `
-    <div class="resultGrid">
-      ${chosen.map((t,i)=>`
-        <div class="taskCard">
-          <div class="taskHead">
-            <strong>Task ${i+1}</strong>
-            <span class="tag">${t.boss}</span>
-          </div>
-          <div class="kv">
-            <div class="k">Task #</div><div class="v">${t.id}</div>
-            <div class="k">Points</div><div class="v">${t.points}</div>
-          </div>
-          <div class="desc">${t.desc}</div>
-        </div>
-      `).join("")}
-    </div>
-  `;
-}
-
-function renderBosses(){
-  const list = document.getElementById("bossList");
-  list.innerHTML = "";
-  [...new Set(tasks.map(t=>t.boss))].forEach(b=>{
-    const div=document.createElement("label");
-    div.className="bossItem";
-    div.innerHTML=`<input type="checkbox" checked> <span>${b}</span>`;
-    div.querySelector("input").onchange=e=>{
-      e.target.checked ? enabledBosses.add(b) : enabledBosses.delete(b);
-    };
-    list.appendChild(div);
-  });
-}
-
-<script>
-function parseTasksFromText(text){
-  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length);
-  const parsed = [];
-
-  for (const line of lines){
-    // supports pipe |, tab, or comma
-    let parts;
-    if (line.includes("|")) parts = line.split("|").map(s => s.trim());
-    else if (line.includes("\t")) parts = line.split("\t").map(s => s.trim());
-    else parts = line.split(",").map(s => s.trim());
-
-    if (parts.length < 4) continue;
-
-    const id = parts[0];
-    const points = Number(String(parts[1]).replace(/[^\d.-]/g,"")) || 0;
-    const boss = parts[2];
-    const desc = parts.slice(3).join(" | "); // keeps extra separators inside description
-
-    if (!boss || !desc) continue;
-
-    parsed.push({
-      id: isNaN(Number(id)) ? id : Number(id),
-      points,
-      boss: boss.trim(),
-      desc: desc.trim()
-    });
+  function setStatus(text){
+    $("saveStatus").textContent = text;
   }
 
-  return parsed;
-}
-
-function loadTasks(){
-  const text = document.getElementById("taskInput").value;
-  const parsed = parseTasksFromText(text);
-
-  if (!parsed.length){
-    document.getElementById("result").innerHTML =
-      "Could not parse tasks. Paste as 4 columns (tab-separated) or use: # | points | boss | description";
-    return;
+  function uniqBosses(list){
+    return [...new Set(list.map(t => (t.boss || "").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
   }
 
-  tasks = parsed;
-  enabledBosses = new Set(tasks.map(t => t.boss)); // enable all bosses by default
-  renderBosses();
+  // ===== Save / Load =====
+  function saveAll(){
+    localStorage.setItem(STORAGE_TASKS, JSON.stringify(tasks));
+    localStorage.setItem(STORAGE_FILTERS, JSON.stringify([...enabledBosses]));
+    setStatus("Saved locally");
+  }
 
-  document.getElementById("result").innerHTML =
-    `Loaded <b>${tasks.length}</b> tasks.`;
-}
-</script>
+  function loadAll(){
+    const savedTasks = localStorage.getItem(STORAGE_TASKS);
+    const savedFilters = localStorage.getItem(STORAGE_FILTERS);
 
+    if (savedTasks){
+      try{
+        const parsed = JSON.parse(savedTasks);
+        if (Array.isArray(parsed) && parsed.length){
+          tasks = parsed;
+        } else {
+          tasks = [...DEFAULT_TASKS];
+        }
+      } catch {
+        tasks = [...DEFAULT_TASKS];
+      }
+    } else {
+      tasks = [...DEFAULT_TASKS];
+    }
 
-function resetAll(){
-  enabledBosses = new Set(tasks.map(t=>t.boss));
-  renderBosses();
-  document.getElementById("result").innerHTML="Reset complete.";
-}
+    const bossesNow = uniqBosses(tasks);
 
-renderBosses();
+    if (savedFilters){
+      try{
+        const parsed = JSON.parse(savedFilters);
+        enabledBosses = new Set(Array.isArray(parsed) ? parsed : bossesNow);
+      } catch {
+        enabledBosses = new Set(bossesNow);
+      }
+    } else {
+      enabledBosses = new Set(bossesNow);
+    }
+
+    // Remove any enabled bosses that don't exist anymore; leave new bosses enabled by default
+    const bossSet = new Set(bossesNow);
+    enabledBosses = new Set([...enabledBosses].filter(b => bossSet.has(b)));
+
+    // If no saved tasks existed, we haven’t "saved yet"—otherwise mark saved.
+    setStatus(savedTasks ? "Saved locally" : "Not saved yet");
+
+    // Put current tasks into textbox for visibility/editing
+    $("taskInput").value = exportTasksToText();
+
+    renderBosses();
+  }
+
+  function clearSaved(){
+    localStorage.removeItem(STORAGE_TASKS);
+    localStorage.removeItem(STORAGE_FILTERS);
+    tasks = [...DEFAULT_TASKS];
+    enabledBosses = new Set(uniqBosses(tasks));
+    $("taskInput").value = exportTasksToText();
+    renderBosses();
+    $("result").textContent = "Cleared saved data. Back to default sample tasks.";
+    setStatus("Not saved yet");
+  }
+
+  // ===== Parsing / Export =====
+  function parseTasksFromText(text){
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length && !l.startsWith("#"));
+    const parsed = [];
+
+    for (const line of lines){
+      let parts;
+      if (line.includes("|")) parts = line.split("|").map(s => s.trim());
+      else if (line.includes("\t")) parts = line.split("\t").map(s => s.trim());
+      else parts = line.split(",").map(s => s.trim());
+
+      if (parts.length < 4) continue;
+
+      const idRaw = parts[0];
+      const pointsRaw = parts[1];
+      const boss = parts[2];
+      const desc = parts.slice(3).join(" | "); // keep extra separators in description
+
+      const points = Number(String(pointsRaw).replace(/[^\d.-]/g,""));
+      const idNum = Number(String(idRaw).replace(/[^\d.-]/g,""));
+
+      if (!boss || !desc) continue;
+
+      parsed.push({
+        id: Number.isFinite(idNum) && String(idRaw).trim() !== "" ? idNum : String(idRaw).trim(),
+        points: Number.isFinite(points) ? points : 0,
+        boss: boss.trim(),
+        desc: desc.trim()
+      });
+    }
+
+    return parsed;
+  }
+
+  function exportTasksToText(){
+    return tasks.map(t => `${t.id}\t${t.points}\t${t.boss}\t${t.desc}`).join("\n");
+  }
+
+  // ===== Boss Filters UI =====
+  function renderBosses(){
+    const list = $("bossList");
+    list.innerHTML = "";
+
+    const bosses = uniqBosses(tasks);
+    if (!bosses.length){
+      list.innerHTML = "<div class='hint'>No bosses found (load tasks first).</div>";
+      return;
+    }
+
+    for (const boss of bosses){
+      const label = document.createElement("label");
+      label.className = "bossItem";
+
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = enabledBosses.has(boss);
+
+      const name = document.createElement("span");
+      name.textContent = boss;
+
+      cb.onchange = () => {
+        if (cb.checked) enabledBosses.add(boss);
+        else enabledBosses.delete(boss);
+        saveAll();
+      };
+
+      label.appendChild(cb);
+      label.appendChild(name);
+      list.appendChild(label);
+    }
+  }
+
+  // ===== Rolling =====
+  function getEligibleTasks(){
+    return tasks.filter(t => enabledBosses.has(t.boss));
+  }
+
+  function roll(n){
+    const eligible = getEligibleTasks();
+    if (!eligible.length){
+      $("result").textContent = "No eligible tasks. Enable at least one boss.";
+      return;
+    }
+
+    // Shuffle (simple + fine for this use)
+    const shuffled = eligible.slice().sort(() => 0.5 - Math.random());
+    const chosen = shuffled.slice(0, Math.min(n, shuffled.length));
+
+    const totalPoints = chosen.reduce((sum,t)=>sum + (Number(t.points)||0), 0);
+
+    $("result").innerHTML = `
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <strong>Rolled ${chosen.length} task${chosen.length===1?"":"s"}</strong>
+        <span style="font-size:12px;color:var(--muted)">Total points: <b>${totalPoints}</b></span>
+      </div>
+      <div class="resultGrid">
+        ${chosen.map((t,i)=>`
+          <div class="taskCard">
+            <div class="taskHead">
+              <strong>Task ${i+1}</strong>
+              <span class="tag">${escapeHtml(t.boss)}</span>
+            </div>
+            <div class="kv">
+              <div class="k">Task #</div><div class="v">${escapeHtml(String(t.id))}</div>
+              <div class="k">Points</div><div class="v">${escapeHtml(String(t.points))}</div>
+            </div>
+            <div class="desc">${escapeHtml(t.desc)}</div>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, (m) => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+    }[m]));
+  }
+
+  // ===== Buttons =====
+  $("roll1").onclick = () => roll(1);
+  $("roll2").onclick = () => roll(2);
+  $("roll3").onclick = () => roll(3);
+
+  $("load").onclick = () => {
+    const text = $("taskInput").value;
+    const parsed = parseTasksFromText(text);
+
+    if (!parsed.length){
+      $("result").textContent = "Could not parse tasks. Paste 4 columns: #, Points, Boss, Task.";
+      return;
+    }
+
+    tasks = parsed;
+
+    // enable all bosses by default after load
+    enabledBosses = new Set(uniqBosses(tasks));
+
+    // save immediately
+    saveAll();
+
+    renderBosses();
+    $("result").innerHTML = `Loaded and saved <b>${tasks.length}</b> tasks.`;
+  };
+
+  $("export").onclick = async () => {
+    const text = exportTasksToText();
+    try{
+      await navigator.clipboard.writeText(text);
+      $("result").innerHTML = "Export copied to clipboard.";
+    } catch {
+      $("taskInput").value = text;
+      $("taskInput").focus();
+      $("taskInput").select();
+      $("result").innerHTML = "Clipboard blocked. Tasks are selected in the textbox — press Ctrl+C.";
+    }
+  };
+
+  $("reset").onclick = () => {
+    // Reset filters only (keep tasks)
+    enabledBosses = new Set(uniqBosses(tasks));
+    saveAll();
+    renderBosses();
+    $("result").textContent = "Boss filters reset (all enabled).";
+  };
+
+  $("enableAll").onclick = () => {
+    enabledBosses = new Set(uniqBosses(tasks));
+    saveAll();
+    renderBosses();
+  };
+
+  $("disableAll").onclick = () => {
+    enabledBosses.clear();
+    saveAll();
+    renderBosses();
+  };
+
+  $("clearSaved").onclick = () => clearSaved();
+
+  // ===== Boot =====
+  loadAll();
 </script>
 
 </body>
 </html>
-
