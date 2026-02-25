@@ -106,26 +106,20 @@ button.secondary{
   border-radius:999px;
   background:#ffff00;
   color:#111;
-  white-space:nowrap;
 }
 
-/* FLAT boss pill */
+/* Flat boss pill (roll output) */
 .bossPill{
   display:inline-flex;
   align-items:center;
   gap:10px;
   padding:6px 14px 6px 10px;
   border-radius:999px;
-
-  background: rgba(255,255,255,.10);
+  background:rgba(255,255,255,.10);
   border:1px solid rgba(255,255,255,.22);
-
-  box-shadow: 0 6px 16px rgba(0,0,0,.35);
-
+  box-shadow:0 6px 16px rgba(0,0,0,.35);
   font-weight:900;
   font-size:13px;
-  letter-spacing:.2px;
-  line-height:1;
 }
 
 .bossPill img{
@@ -133,10 +127,7 @@ button.secondary{
   height:22px;
   border-radius:7px;
   object-fit:cover;
-  flex:0 0 auto;
-
   border:1px solid rgba(255,255,255,.25);
-  box-shadow: 0 6px 12px rgba(0,0,0,.35);
 }
 
 .desc{
@@ -144,19 +135,17 @@ button.secondary{
   padding-top:12px;
   border-top:1px solid var(--border);
   font-weight:700;
-  line-height:1.35;
 }
 
 /* LOG */
 table{width:100%;border-collapse:collapse;font-size:12px}
 th,td{padding:10px;border-bottom:1px solid rgba(255,255,255,.08)}
-th{color:var(--muted);text-align:left;background:rgba(0,0,0,.35);position:sticky;top:0}
-tbody tr:hover{background:rgba(255,255,255,.04)}
+th{color:var(--muted);background:rgba(0,0,0,.35);text-align:left;position:sticky;top:0}
 
-/* Boss icon grid */
+/* Boss filter icons */
 .bossIconGrid{
   display:grid;
-  grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+  grid-template-columns:repeat(auto-fill,52px);
   gap:10px;
 }
 
@@ -166,56 +155,53 @@ tbody tr:hover{background:rgba(255,255,255,.04)}
   height:52px;
   border-radius:12px;
   border:1px solid rgba(255,255,255,.12);
-  background: rgba(255,255,255,.05);
-  overflow:hidden;
+  background:rgba(255,255,255,.05);
+  overflow:visible;
   cursor:pointer;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  user-select:none;
 }
 
 .bossIcon img{
   width:100%;
   height:100%;
   object-fit:cover;
-  display:block;
-  transition: opacity .15s ease, filter .15s ease, transform .08s ease;
+  border-radius:12px;
 }
 
-.bossIcon:hover img{ transform: scale(1.03); }
-.bossIcon.off img{ opacity:.28; filter: grayscale(1) brightness(.8); }
+.bossIcon.off img{
+  opacity:.28;
+  filter:grayscale(1) brightness(.8);
+}
 
+/* Tooltip (Option A) */
 .bossIcon .tip{
   position:absolute;
+  bottom:-26px;
   left:50%;
-  bottom:6px;
   transform:translateX(-50%);
-  background:rgba(0,0,0,.65);
-  border:1px solid rgba(255,255,255,.12);
+  background:rgba(0,0,0,.85);
+  border:1px solid rgba(255,255,255,.2);
   color:#fff;
-  font-size:10px;
-  padding:2px 6px;
+  font-size:11px;
+  padding:3px 8px;
   border-radius:999px;
-  max-width:92%;
   white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
+  opacity:0;
   pointer-events:none;
+  transition:opacity .12s ease, transform .12s ease;
+  z-index:50;
 }
 
-.smallNote{ font-size:11px;color:var(--muted); }
+.bossIcon:hover .tip{
+  opacity:1;
+  transform:translateX(-50%) translateY(2px);
+}
 </style>
 </head>
 
 <body>
 
 <header>
-  <h1>
-    Task Roller
-    <span class="spacer"></span>
-    <span id="status" class="smallNote">Loading tasks…</span>
-  </h1>
+  <h1>Task Roller <span class="spacer"></span><span id="status" style="font-size:11px;color:var(--muted)">Loading…</span></h1>
 </header>
 
 <main>
@@ -229,37 +215,8 @@ tbody tr:hover{background:rgba(255,255,255,.04)}
       <span class="spacer"></span>
       <button class="secondary" onclick="resetFilters()">Reset Filters</button>
     </div>
-
     <div class="divider"></div>
-
-    <div class="result" id="result">
-      Click a roll button to generate tasks.
-    </div>
-  </div>
-
-  <div class="card" style="margin-top:14px">
-    <div class="row">
-      <strong>Log</strong>
-      <span class="spacer"></span>
-      <span class="smallNote"><span id="logCount">0</span> entries</span>
-    </div>
-
-    <div class="divider"></div>
-
-    <div style="max-height:260px;overflow:auto;border-radius:12px;border:1px solid rgba(255,255,255,.1)">
-      <table>
-        <thead>
-          <tr>
-            <th>Time</th><th>Boss</th><th>#</th><th>Pts</th><th>Task</th>
-          </tr>
-        </thead>
-        <tbody id="logBody"></tbody>
-      </table>
-    </div>
-
-    <div class="row" style="margin-top:10px">
-      <button class="secondary" onclick="clearLog()">Clear Log</button>
-    </div>
+    <div class="result" id="result">Click a roll button to generate tasks.</div>
   </div>
 </section>
 
@@ -274,57 +231,60 @@ tbody tr:hover{background:rgba(255,255,255,.04)}
 </main>
 
 <script>
-const STORAGE_FILTERS="filters_v1";
-const STORAGE_LOG="log_v1";
-
-let tasks=[], enabledBosses=new Set(), log=[];
+let tasks=[], enabledBosses=new Set();
 
 function bossToIconPath(b){
   return "icons/"+b.toLowerCase().replace(/&/g,"and").replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"")+".png";
 }
 
 function bossPillHTML(b){
-  const src=bossToIconPath(b);
-  return `<span class="bossPill"><img src="${src}" onerror="this.style.display='none'"><span>${b}</span></span>`;
+  return `<span class="bossPill"><img src="${bossToIconPath(b)}" onerror="this.style.display='none'"><span>${b}</span></span>`;
 }
 
 async function loadTasks(){
-  const t=await (await fetch("tasks.csv",{cache:"no-store"})).text();
-  tasks=t.split(/\r?\n/).filter(Boolean).map((l,i)=>{const c=l.split(",");return{ id:i+1, points:+c[0], boss:c[1], desc:c.slice(2).join(",") }});
+  const text = await (await fetch("tasks.csv",{cache:"no-store"})).text();
+  tasks = text.split(/\r?\n/).filter(Boolean).map((l,i)=>{
+    const c=l.split(",");
+    return {id:i+1,points:+c[0],boss:c[1],desc:c.slice(2).join(",")};
+  });
   enabledBosses=new Set(tasks.map(t=>t.boss));
   renderBosses();
   document.getElementById("status").textContent=`Loaded ${tasks.length} tasks`;
 }
 
 function roll(n){
-  const e=tasks.filter(t=>enabledBosses.has(t.boss));
-  const c=[...e].sort(()=>.5-Math.random()).slice(0,n);
-  log.unshift(...c.map(t=>({time:new Date(),...t})));
-  renderLog();
-  document.getElementById("result").innerHTML=`<div class="resultGrid">${c.map(t=>`
-    <div class="taskCard">
-      <div class="taskHead">${bossPillHTML(t.boss)}<span class="pointsBadge">${t.points} pts</span></div>
-      <div class="desc">${t.desc}</div>
-    </div>`).join("")}</div>`;
+  const pool=tasks.filter(t=>enabledBosses.has(t.boss));
+  const chosen=[...pool].sort(()=>.5-Math.random()).slice(0,n);
+  document.getElementById("result").innerHTML=`<div class="resultGrid">${
+    chosen.map(t=>`
+      <div class="taskCard">
+        <div class="taskHead">${bossPillHTML(t.boss)}<span class="pointsBadge">${t.points} pts</span></div>
+        <div class="desc">${t.desc}</div>
+      </div>`).join("")
+  }</div>`;
 }
 
 function renderBosses(){
-  const l=document.getElementById("bossList"); l.innerHTML="";
+  const list=document.getElementById("bossList");
+  list.innerHTML="";
   [...new Set(tasks.map(t=>t.boss))].forEach(b=>{
-    const d=document.createElement("div"); d.className="bossIcon"+(enabledBosses.has(b)?"":" off");
-    const i=document.createElement("img"); i.src=bossToIconPath(b);
-    d.append(i); d.onclick=()=>{enabledBosses.has(b)?enabledBosses.delete(b):enabledBosses.add(b);d.classList.toggle("off")};
-    l.append(d);
+    const d=document.createElement("div");
+    d.className="bossIcon";
+    const i=document.createElement("img");
+    i.src=bossToIconPath(b);
+    const tip=document.createElement("div");
+    tip.className="tip";
+    tip.textContent=b;
+    d.append(i,tip);
+    d.onclick=()=>{enabledBosses.has(b)?enabledBosses.delete(b):enabledBosses.add(b);d.classList.toggle("off")};
+    list.append(d);
   });
 }
 
-function renderLog(){
-  document.getElementById("logCount").textContent=log.length;
-  document.getElementById("logBody").innerHTML=log.map(r=>`<tr><td>${r.time.toLocaleString()}</td><td>${r.boss}</td><td>${r.id}</td><td>${r.points}</td><td>${r.desc}</td></tr>`).join("");
+function resetFilters(){
+  enabledBosses=new Set(tasks.map(t=>t.boss));
+  renderBosses();
 }
-
-function clearLog(){ log=[]; renderLog(); }
-function resetFilters(){ enabledBosses=new Set(tasks.map(t=>t.boss)); renderBosses(); }
 
 loadTasks();
 </script>
