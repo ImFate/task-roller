@@ -95,7 +95,6 @@ button.secondary{
   display:flex;
   justify-content:space-between;
   align-items:center;
-  gap:10px;
 }
 
 .pointsBadge{
@@ -120,16 +119,6 @@ button.secondary{
   padding-top:12px;
   border-top:1px solid var(--border);
   font-weight:700;
-}
-
-textarea{
-  width:100%;
-  background:rgba(0,0,0,.3);
-  color:var(--text);
-  border:1px solid var(--border);
-  border-radius:12px;
-  padding:10px;
-  min-height:150px;
 }
 
 .bossList{display:grid;gap:8px;max-height:320px;overflow:auto}
@@ -159,7 +148,7 @@ tbody tr:hover{background:rgba(255,255,255,.04)}
   <h1>
     Task Roller
     <span class="spacer"></span>
-    <span style="font-size:11px;color:var(--muted)">Saved locally</span>
+    <span style="font-size:11px;color:var(--muted)">Tasks auto-loaded</span>
   </h1>
 </header>
 
@@ -213,15 +202,6 @@ tbody tr:hover{background:rgba(255,255,255,.04)}
       <button class="secondary" onclick="clearLog()">Clear Log</button>
     </div>
   </div>
-
-  <!-- TASK INPUT -->
-  <div class="card" style="margin-top:14px">
-    <strong>Tasks</strong>
-    <textarea id="taskInput"></textarea>
-    <div class="row" style="margin-top:10px">
-      <button class="secondary" onclick="loadTasks()">Load + Save Tasks</button>
-    </div>
-  </div>
 </section>
 
 <aside>
@@ -239,28 +219,54 @@ const STORAGE_TASKS="tasks_v1";
 const STORAGE_FILTERS="filters_v1";
 const STORAGE_LOG="log_v1";
 
-let tasks=[
- {id:1,points:950,boss:"Abyssal Sire",desc:"Create a Bludgeon"},
- {id:2,points:315,boss:"Abyssal Sire",desc:"Obtain 1 Unsired"},
- {id:3,points:4500,boss:"Alchemical Hydra",desc:"Obtain Hydra Claw"}
-];
-
+let tasks=[];
 let enabledBosses=new Set();
 let log=[];
 
+// ---- CSV AUTO LOAD ----
+async function loadTasksFromCSV(){
+  const res = await fetch("tasks.csv", { cache: "no-store" });
+  const text = await res.text();
+  const lines = text.split(/\r?\n/).filter(Boolean);
+
+  const start = lines[0].toLowerCase().includes("points") ? 1 : 0;
+  tasks = [];
+
+  for (let i=start;i<lines.length;i++){
+    const cols = parseCSV(lines[i]);
+    if (cols.length < 4) continue;
+    tasks.push({
+      id: cols[0],
+      points: Number(cols[1]) || 0,
+      boss: cols[2],
+      desc: cols.slice(3).join(",")
+    });
+  }
+
+  enabledBosses = new Set(tasks.map(t=>t.boss));
+  saveAll();
+  renderBosses();
+}
+
+function parseCSV(line){
+  const out=[],cur=[];
+  let q=false;
+  for(let i=0;i<line.length;i++){
+    const c=line[i];
+    if(c=='"' && line[i+1]=='"'){cur.push('"');i++;}
+    else if(c=='"') q=!q;
+    else if(c==',' && !q){out.push(cur.join("").trim());cur.length=0;}
+    else cur.push(c);
+  }
+  out.push(cur.join("").trim());
+  return out;
+}
+
+// ---- CORE ----
 function saveAll(){
  localStorage.setItem(STORAGE_TASKS,JSON.stringify(tasks));
  localStorage.setItem(STORAGE_FILTERS,JSON.stringify([...enabledBosses]));
  localStorage.setItem(STORAGE_LOG,JSON.stringify(log));
-}
-
-function loadAll(){
- tasks=JSON.parse(localStorage.getItem(STORAGE_TASKS))||tasks;
- enabledBosses=new Set(JSON.parse(localStorage.getItem(STORAGE_FILTERS))||tasks.map(t=>t.boss));
- log=JSON.parse(localStorage.getItem(STORAGE_LOG))||[];
- renderBosses();
- renderLog();
- document.getElementById("taskInput").value=exportTasks();
 }
 
 function roll(n){
@@ -270,10 +276,7 @@ function roll(n){
  const chosen=[...eligible].sort(()=>0.5-Math.random()).slice(0,n);
  const now=new Date().toISOString();
 
- chosen.forEach(t=>{
-   log.unshift({time:now,...t});
- });
-
+ chosen.forEach(t=>log.unshift({time:now,...t}));
  saveAll();
  renderLog();
 
@@ -286,8 +289,7 @@ function roll(n){
         <span class="pointsBadge">${t.points} pts</span>
       </div>
       <div class="desc">${t.desc}</div>
-    </div>
-   `).join("")}
+    </div>`).join("")}
   </div>`;
 }
 
@@ -295,15 +297,15 @@ function renderBosses(){
  const list=document.getElementById("bossList");
  list.innerHTML="";
  [...new Set(tasks.map(t=>t.boss))].forEach(b=>{
-  const label=document.createElement("label");
-  label.className="bossItem";
+  const l=document.createElement("label");
+  l.className="bossItem";
   const cb=document.createElement("input");
   cb.type="checkbox";
   cb.checked=enabledBosses.has(b);
   cb.onchange=()=>{cb.checked?enabledBosses.add(b):enabledBosses.delete(b);saveAll();}
-  label.append(cb,document.createElement("span"));
-  label.lastChild.textContent=b;
-  list.appendChild(label);
+  l.append(cb,document.createElement("span"));
+  l.lastChild.textContent=b;
+  list.appendChild(l);
  });
 }
 
@@ -325,29 +327,18 @@ function clearLog(){
  renderLog();
 }
 
-function parseTasks(text){
- return text.split("\n").map(l=>l.split("\t")).filter(p=>p.length>=4)
- .map(p=>({id:p[0],points:+p[1],boss:p[2],desc:p.slice(3).join(" ")}));
-}
-
-function loadTasks(){
- tasks=parseTasks(document.getElementById("taskInput").value);
- enabledBosses=new Set(tasks.map(t=>t.boss));
- saveAll();
- renderBosses();
-}
-
-function exportTasks(){
- return tasks.map(t=>`${t.id}\t${t.points}\t${t.boss}\t${t.desc}`).join("\n");
-}
-
 function resetFilters(){
  enabledBosses=new Set(tasks.map(t=>t.boss));
  saveAll();
  renderBosses();
 }
 
-loadAll();
+// ---- BOOT ----
+(async()=>{
+ log=JSON.parse(localStorage.getItem(STORAGE_LOG))||[];
+ await loadTasksFromCSV();
+ renderLog();
+})();
 </script>
 
 </body>
