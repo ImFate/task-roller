@@ -109,13 +109,27 @@ button.secondary{
   white-space:nowrap;
 }
 
-.tag{
-  font-size:12px;
-  padding:3px 9px;
+/* Boss pill (roll output) */
+.bossPill{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:4px 10px 4px 6px;
   border-radius:999px;
   background:rgba(255,122,24,.2);
-  font-weight:800;
+  font-weight:900;
+  font-size:12px;
   line-height:1;
+  max-width: 70%;
+}
+
+.bossPill img{
+  width:18px;
+  height:18px;
+  border-radius:5px;
+  object-fit:cover;
+  flex:0 0 auto;
+  border:1px solid rgba(255,255,255,.12);
 }
 
 .desc{
@@ -278,7 +292,6 @@ tbody tr:hover{background:rgba(255,255,255,.04)}
 </main>
 
 <script>
-const STORAGE_TASKS="tasks_v1";
 const STORAGE_FILTERS="filters_v1";
 const STORAGE_LOG="log_v1";
 
@@ -349,8 +362,6 @@ async function loadTasksFromCSV(){
     }
 
     // 4+ columns:
-    // If id,points,boss,desc -> use it.
-    // If points,boss,desc,... -> treat first as points if numeric and second not numeric.
     const firstIsNumber = cols[0] !== "" && !isNaN(Number(cols[0]));
     const secondIsNumber = cols[1] !== "" && !isNaN(Number(cols[1]));
 
@@ -379,18 +390,26 @@ async function loadTasksFromCSV(){
   // Bosses enabled by default
   enabledBosses = new Set([...new Set(tasks.map(t => t.boss))]);
 
-  saveAll();
+  // Try to load saved filters (optional)
+  const savedFilters = localStorage.getItem(STORAGE_FILTERS);
+  if (savedFilters){
+    try{
+      const arr = JSON.parse(savedFilters);
+      if (Array.isArray(arr)) enabledBosses = new Set(arr);
+    } catch {}
+  }
+
   renderBosses();
   setStatus(`Loaded ${tasks.length} tasks`);
 }
 
 /* ---------- storage ---------- */
-function saveAll(){
-  localStorage.setItem(STORAGE_TASKS, JSON.stringify(tasks));
+function saveFilters(){
   localStorage.setItem(STORAGE_FILTERS, JSON.stringify([...enabledBosses]));
+}
+function saveLog(){
   localStorage.setItem(STORAGE_LOG, JSON.stringify(log));
 }
-
 function loadSavedLog(){
   const savedLog = localStorage.getItem(STORAGE_LOG);
   try { log = savedLog ? (JSON.parse(savedLog) || []) : []; }
@@ -399,9 +418,6 @@ function loadSavedLog(){
 }
 
 /* ---------- Boss icon mapping ---------- */
-/* Your icons should be in /icons and named like:
-   "Abyssal Sire" -> icons/abyssal_sire.png
-*/
 function bossToIconPath(bossName){
   const file = bossName
     .toLowerCase()
@@ -409,6 +425,18 @@ function bossToIconPath(bossName){
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
   return `icons/${file}.png`;
+}
+
+// Makes an HTML string for the boss pill with icon.
+// Uses <img onerror> to hide itself if missing.
+function bossPillHTML(boss){
+  const src = bossToIconPath(boss);
+  return `
+    <span class="bossPill" title="${escapeHtml(boss)}">
+      <img src="${escapeHtml(src)}" alt="" onerror="this.style.display='none'">
+      <span>${escapeHtml(boss)}</span>
+    </span>
+  `;
 }
 
 function renderBosses(){
@@ -426,7 +454,6 @@ function renderBosses(){
     img.src = bossToIconPath(boss);
     img.alt = boss;
 
-    // If missing icon, show letter fallback so you can spot which ones need an image
     img.onerror = () => {
       img.remove();
       const fallback = document.createElement("div");
@@ -454,7 +481,7 @@ function renderBosses(){
       if (enabledBosses.has(boss)) enabledBosses.delete(boss);
       else enabledBosses.add(boss);
 
-      saveAll();
+      saveFilters();
       wrap.classList.toggle("off");
     };
 
@@ -464,13 +491,13 @@ function renderBosses(){
 
 function enableAllBosses(){
   enabledBosses = new Set(tasks.map(t => t.boss));
-  saveAll();
+  saveFilters();
   renderBosses();
 }
 
 function disableAllBosses(){
   enabledBosses = new Set();
-  saveAll();
+  saveFilters();
   renderBosses();
 }
 
@@ -491,7 +518,7 @@ function roll(n){
   const now = new Date().toISOString();
 
   chosen.forEach(t => log.unshift({ time: now, ...t }));
-  saveAll();
+  saveLog();
   renderLog();
 
   document.getElementById("result").innerHTML = `
@@ -499,7 +526,7 @@ function roll(n){
       ${chosen.map(t => `
         <div class="taskCard">
           <div class="taskHead">
-            <span class="tag">${escapeHtml(t.boss)}</span>
+            ${bossPillHTML(t.boss)}
             <span class="pointsBadge">${escapeHtml(String(t.points))} pts</span>
           </div>
           <div class="desc">${escapeHtml(t.desc)}</div>
@@ -531,14 +558,14 @@ function renderLog(){
 
 function clearLog(){
   log = [];
-  saveAll();
+  saveLog();
   renderLog();
 }
 
 /* ---------- reset filters ---------- */
 function resetFilters(){
   enabledBosses = new Set(tasks.map(t => t.boss));
-  saveAll();
+  saveFilters();
   renderBosses();
 }
 
@@ -548,17 +575,6 @@ function resetFilters(){
 
   try{
     await loadTasksFromCSV();
-
-    // If you want to respect saved filters across refresh:
-    const savedFilters = localStorage.getItem(STORAGE_FILTERS);
-    if (savedFilters){
-      try{
-        const arr = JSON.parse(savedFilters);
-        if (Array.isArray(arr)) enabledBosses = new Set(arr);
-        renderBosses();
-      } catch {}
-    }
-
   } catch (e){
     console.error(e);
     setStatus("tasks.csv failed to load");
