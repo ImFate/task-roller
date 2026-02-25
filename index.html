@@ -30,6 +30,7 @@ header{
   background:rgba(0,0,0,.3);
   position:sticky;
   top:0;
+  z-index:10;
 }
 
 h1{
@@ -114,6 +115,7 @@ button.secondary{
   border-radius:999px;
   background:rgba(255,122,24,.2);
   font-weight:800;
+  line-height:1;
 }
 
 .desc{
@@ -121,26 +123,76 @@ button.secondary{
   padding-top:12px;
   border-top:1px solid var(--border);
   font-weight:700;
+  line-height:1.35;
 }
-
-.bossList{display:grid;gap:8px;max-height:320px;overflow:auto}
-.bossItem{
-  display:flex;
-  gap:10px;
-  align-items:center;
-  padding:10px;
-  border-radius:12px;
-  background:rgba(255,255,255,.05);
-  border:1px solid rgba(255,255,255,.1);
-}
-.bossItem input{transform:scale(1.15)}
-.bossItem span{font-weight:800}
 
 /* LOG */
 table{width:100%;border-collapse:collapse;font-size:12px}
 th,td{padding:10px;border-bottom:1px solid rgba(255,255,255,.08)}
 th{color:var(--muted);text-align:left;background:rgba(0,0,0,.35);position:sticky;top:0}
 tbody tr:hover{background:rgba(255,255,255,.04)}
+
+/* Boss icon grid */
+.bossIconGrid{
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+  gap:10px;
+}
+
+.bossIcon{
+  position:relative;
+  width:52px;
+  height:52px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.05);
+  overflow:hidden;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  user-select:none;
+}
+
+.bossIcon img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+  transition: opacity .15s ease, filter .15s ease, transform .08s ease;
+}
+
+.bossIcon:hover img{
+  transform: scale(1.03);
+}
+
+.bossIcon.off img{
+  opacity:0.28;
+  filter: grayscale(1) brightness(0.8);
+}
+
+.bossIcon .tip{
+  position:absolute;
+  left:50%;
+  bottom:6px;
+  transform:translateX(-50%);
+  background:rgba(0,0,0,.65);
+  border:1px solid rgba(255,255,255,.12);
+  color:rgba(255,255,255,.9);
+  font-size:10px;
+  padding:2px 6px;
+  border-radius:999px;
+  max-width:92%;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  pointer-events:none;
+}
+
+.smallNote{
+  font-size:11px;
+  color:var(--muted);
+}
 </style>
 </head>
 
@@ -150,7 +202,7 @@ tbody tr:hover{background:rgba(255,255,255,.04)}
   <h1>
     Task Roller
     <span class="spacer"></span>
-    <span id="status" style="font-size:11px;color:var(--muted)">Loading tasks…</span>
+    <span id="status" class="smallNote">Loading tasks…</span>
   </h1>
 </header>
 
@@ -208,9 +260,18 @@ tbody tr:hover{background:rgba(255,255,255,.04)}
 
 <aside>
   <div class="card">
-    <strong>Boss Filters</strong>
+    <div class="row" style="align-items:baseline">
+      <strong>Boss Filters</strong>
+      <span class="spacer"></span>
+      <span class="smallNote">Click icons to toggle</span>
+    </div>
     <div class="divider"></div>
-    <div class="bossList" id="bossList"></div>
+    <div class="bossIconGrid" id="bossList"></div>
+    <div class="divider"></div>
+    <div class="row">
+      <button class="secondary" onclick="enableAllBosses()">Enable All</button>
+      <button class="secondary" onclick="disableAllBosses()">Disable All</button>
+    </div>
   </div>
 </aside>
 
@@ -221,27 +282,27 @@ const STORAGE_TASKS="tasks_v1";
 const STORAGE_FILTERS="filters_v1";
 const STORAGE_LOG="log_v1";
 
-let tasks=[];
-let enabledBosses=new Set();
-let log=[];
+let tasks = [];
+let enabledBosses = new Set();
+let log = [];
 
-function setStatus(msg){ document.getElementById("status").textContent = msg; }
+function setStatus(msg){
+  const el = document.getElementById("status");
+  if (el) el.textContent = msg;
+}
 
-// ---- CSV helpers ----
+/* ---------- CSV parsing ---------- */
 function parseCSVRow(line){
   const out = [];
   let cur = "";
   let inQuotes = false;
 
-  for (let i=0; i<line.length; i++){
+  for (let i = 0; i < line.length; i++){
     const ch = line[i];
 
     if (ch === '"'){
-      if (inQuotes && line[i+1] === '"'){
-        cur += '"'; i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
+      if (inQuotes && line[i+1] === '"'){ cur += '"'; i++; }
+      else inQuotes = !inQuotes;
     } else if (ch === ',' && !inQuotes){
       out.push(cur.trim());
       cur = "";
@@ -258,20 +319,6 @@ function looksLikeHeader(cols){
   return joined.includes("points") || joined.includes("boss") || joined.includes("task");
 }
 
-// ---- storage ----
-function saveAll(){
-  localStorage.setItem(STORAGE_TASKS,JSON.stringify(tasks));
-  localStorage.setItem(STORAGE_FILTERS,JSON.stringify([...enabledBosses]));
-  localStorage.setItem(STORAGE_LOG,JSON.stringify(log));
-}
-
-function loadSaved(){
-  const savedLog = localStorage.getItem(STORAGE_LOG);
-  log = savedLog ? (JSON.parse(savedLog) || []) : [];
-  renderLog();
-}
-
-// ---- load tasks from CSV (supports 3-col or 4-col) ----
 async function loadTasksFromCSV(){
   const res = await fetch("tasks.csv", { cache: "no-store" });
   if (!res.ok) throw new Error("Could not fetch tasks.csv");
@@ -280,14 +327,13 @@ async function loadTasksFromCSV(){
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   if (!lines.length) throw new Error("tasks.csv is empty");
 
-  // detect header
   const firstCols = parseCSVRow(lines[0]);
   const start = looksLikeHeader(firstCols) ? 1 : 0;
 
   const parsed = [];
   let autoId = 1;
 
-  for (let i=start; i<lines.length; i++){
+  for (let i = start; i < lines.length; i++){
     const cols = parseCSVRow(lines[i]);
     if (cols.length < 3) continue;
 
@@ -303,45 +349,132 @@ async function loadTasksFromCSV(){
     }
 
     // 4+ columns:
-    // If your file is id,points,boss,desc -> use it.
-    // If your file is points,boss,desc,extra... -> treat first as points if numeric.
-    const firstIsNumber = !isNaN(Number(cols[0])) && cols[0] !== "";
+    // If id,points,boss,desc -> use it.
+    // If points,boss,desc,... -> treat first as points if numeric and second not numeric.
+    const firstIsNumber = cols[0] !== "" && !isNaN(Number(cols[0]));
+    const secondIsNumber = cols[1] !== "" && !isNaN(Number(cols[1]));
 
-    if (firstIsNumber && cols.length >= 4){
-      // Decide whether cols[0] is id or points:
-      // If cols[1] is numeric too, cols[0] is probably id.
-      const secondIsNumber = !isNaN(Number(cols[1])) && cols[1] !== "";
-
-      if (secondIsNumber){
-        // id, points, boss, desc...
-        parsed.push({
-          id: cols[0],
-          points: Number(cols[1]) || 0,
-          boss: cols[2],
-          desc: cols.slice(3).join(",").trim()
-        });
-      } else {
-        // points, boss, desc...
-        parsed.push({
-          id: autoId++,
-          points: Number(cols[0]) || 0,
-          boss: cols[1],
-          desc: cols.slice(2).join(",").trim()
-        });
-      }
+    if (firstIsNumber && secondIsNumber){
+      // id, points, boss, desc...
+      parsed.push({
+        id: cols[0],
+        points: Number(cols[1]) || 0,
+        boss: cols[2],
+        desc: cols.slice(3).join(",").trim()
+      });
+    } else if (firstIsNumber){
+      // points, boss, desc...
+      parsed.push({
+        id: autoId++,
+        points: Number(cols[0]) || 0,
+        boss: cols[1],
+        desc: cols.slice(2).join(",").trim()
+      });
     }
   }
 
   if (!parsed.length) throw new Error("No tasks parsed from tasks.csv");
-
   tasks = parsed;
+
+  // Bosses enabled by default
   enabledBosses = new Set([...new Set(tasks.map(t => t.boss))]);
+
   saveAll();
   renderBosses();
   setStatus(`Loaded ${tasks.length} tasks`);
 }
 
-// ---- UI ----
+/* ---------- storage ---------- */
+function saveAll(){
+  localStorage.setItem(STORAGE_TASKS, JSON.stringify(tasks));
+  localStorage.setItem(STORAGE_FILTERS, JSON.stringify([...enabledBosses]));
+  localStorage.setItem(STORAGE_LOG, JSON.stringify(log));
+}
+
+function loadSavedLog(){
+  const savedLog = localStorage.getItem(STORAGE_LOG);
+  try { log = savedLog ? (JSON.parse(savedLog) || []) : []; }
+  catch { log = []; }
+  renderLog();
+}
+
+/* ---------- Boss icon mapping ---------- */
+/* Your icons should be in /icons and named like:
+   "Abyssal Sire" -> icons/abyssal_sire.png
+*/
+function bossToIconPath(bossName){
+  const file = bossName
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return `icons/${file}.png`;
+}
+
+function renderBosses(){
+  const list = document.getElementById("bossList");
+  list.innerHTML = "";
+
+  const bosses = [...new Set(tasks.map(t => t.boss))].sort((a,b)=>a.localeCompare(b));
+
+  bosses.forEach(boss => {
+    const wrap = document.createElement("div");
+    wrap.className = "bossIcon" + (enabledBosses.has(boss) ? "" : " off");
+    wrap.title = boss;
+
+    const img = document.createElement("img");
+    img.src = bossToIconPath(boss);
+    img.alt = boss;
+
+    // If missing icon, show letter fallback so you can spot which ones need an image
+    img.onerror = () => {
+      img.remove();
+      const fallback = document.createElement("div");
+      fallback.style.width="100%";
+      fallback.style.height="100%";
+      fallback.style.display="flex";
+      fallback.style.alignItems="center";
+      fallback.style.justifyContent="center";
+      fallback.style.fontWeight="900";
+      fallback.style.color="rgba(255,255,255,.85)";
+      fallback.style.fontSize="18px";
+      fallback.textContent = boss.trim().charAt(0).toUpperCase();
+      wrap.appendChild(fallback);
+      if (!enabledBosses.has(boss)) wrap.style.opacity = "0.35";
+    };
+
+    const tip = document.createElement("div");
+    tip.className = "tip";
+    tip.textContent = boss;
+
+    wrap.appendChild(img);
+    wrap.appendChild(tip);
+
+    wrap.onclick = () => {
+      if (enabledBosses.has(boss)) enabledBosses.delete(boss);
+      else enabledBosses.add(boss);
+
+      saveAll();
+      wrap.classList.toggle("off");
+    };
+
+    list.appendChild(wrap);
+  });
+}
+
+function enableAllBosses(){
+  enabledBosses = new Set(tasks.map(t => t.boss));
+  saveAll();
+  renderBosses();
+}
+
+function disableAllBosses(){
+  enabledBosses = new Set();
+  saveAll();
+  renderBosses();
+}
+
+/* ---------- rolling ---------- */
 function roll(n){
   if (!tasks.length){
     document.getElementById("result").textContent = "Tasks not loaded yet (or tasks.csv failed).";
@@ -354,7 +487,7 @@ function roll(n){
     return;
   }
 
-  const chosen = [...eligible].sort(()=>0.5-Math.random()).slice(0, Math.min(n, eligible.length));
+  const chosen = [...eligible].sort(() => 0.5 - Math.random()).slice(0, Math.min(n, eligible.length));
   const now = new Date().toISOString();
 
   chosen.forEach(t => log.unshift({ time: now, ...t }));
@@ -366,70 +499,71 @@ function roll(n){
       ${chosen.map(t => `
         <div class="taskCard">
           <div class="taskHead">
-            <span class="tag">${t.boss}</span>
-            <span class="pointsBadge">${t.points} pts</span>
+            <span class="tag">${escapeHtml(t.boss)}</span>
+            <span class="pointsBadge">${escapeHtml(String(t.points))} pts</span>
           </div>
-          <div class="desc">${t.desc}</div>
+          <div class="desc">${escapeHtml(t.desc)}</div>
         </div>
       `).join("")}
     </div>
   `;
 }
 
-function renderBosses(){
-  const list = document.getElementById("bossList");
-  list.innerHTML = "";
-
-  const bosses = [...new Set(tasks.map(t=>t.boss))];
-  bosses.forEach(b=>{
-    const label=document.createElement("label");
-    label.className="bossItem";
-    const cb=document.createElement("input");
-    cb.type="checkbox";
-    cb.checked=enabledBosses.has(b);
-    cb.onchange=()=>{ cb.checked ? enabledBosses.add(b) : enabledBosses.delete(b); saveAll(); };
-    const sp=document.createElement("span");
-    sp.textContent=b;
-    label.append(cb,sp);
-    list.appendChild(label);
-  });
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, (m) => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  }[m]));
 }
 
+/* ---------- log ---------- */
 function renderLog(){
   document.getElementById("logCount").textContent = log.length;
-  document.getElementById("logBody").innerHTML = log.map(r=>`
+  document.getElementById("logBody").innerHTML = log.map(r => `
     <tr>
       <td>${new Date(r.time).toLocaleString()}</td>
-      <td><strong>${r.boss}</strong></td>
-      <td>${r.id}</td>
-      <td>${r.points}</td>
-      <td>${r.desc}</td>
+      <td><strong>${escapeHtml(r.boss)}</strong></td>
+      <td>${escapeHtml(String(r.id))}</td>
+      <td>${escapeHtml(String(r.points))}</td>
+      <td>${escapeHtml(r.desc)}</td>
     </tr>
   `).join("");
 }
 
 function clearLog(){
-  log=[];
+  log = [];
   saveAll();
   renderLog();
 }
 
+/* ---------- reset filters ---------- */
 function resetFilters(){
-  enabledBosses = new Set(tasks.map(t=>t.boss));
+  enabledBosses = new Set(tasks.map(t => t.boss));
   saveAll();
   renderBosses();
 }
 
-// ---- boot ----
-(async()=>{
-  loadSaved();
+/* ---------- boot ---------- */
+(async () => {
+  loadSavedLog();
+
   try{
     await loadTasksFromCSV();
+
+    // If you want to respect saved filters across refresh:
+    const savedFilters = localStorage.getItem(STORAGE_FILTERS);
+    if (savedFilters){
+      try{
+        const arr = JSON.parse(savedFilters);
+        if (Array.isArray(arr)) enabledBosses = new Set(arr);
+        renderBosses();
+      } catch {}
+    }
+
   } catch (e){
     console.error(e);
     setStatus("tasks.csv failed to load");
     document.getElementById("result").textContent =
-      "Could not load tasks.csv. Make sure tasks.csv is in the same folder and GitHub Pages is enabled.";
+      "Could not load tasks.csv. Make sure tasks.csv is in the same folder and GitHub Pages is serving it.";
   }
 })();
 </script>
