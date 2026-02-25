@@ -108,7 +108,7 @@ button.secondary{
   color:#111;
 }
 
-/* Flat boss pill (roll output) */
+/* Boss pill */
 .bossPill{
   display:inline-flex;
   align-items:center;
@@ -141,8 +141,9 @@ button.secondary{
 table{width:100%;border-collapse:collapse;font-size:12px}
 th,td{padding:10px;border-bottom:1px solid rgba(255,255,255,.08)}
 th{color:var(--muted);background:rgba(0,0,0,.35);text-align:left;position:sticky;top:0}
+tbody tr:hover{background:rgba(255,255,255,.04)}
 
-/* Boss filter icons */
+/* Boss icon grid */
 .bossIconGrid{
   display:grid;
   grid-template-columns:repeat(auto-fill,52px);
@@ -156,7 +157,6 @@ th{color:var(--muted);background:rgba(0,0,0,.35);text-align:left;position:sticky
   border-radius:12px;
   border:1px solid rgba(255,255,255,.12);
   background:rgba(255,255,255,.05);
-  overflow:visible;
   cursor:pointer;
 }
 
@@ -172,7 +172,7 @@ th{color:var(--muted);background:rgba(0,0,0,.35);text-align:left;position:sticky
   filter:grayscale(1) brightness(.8);
 }
 
-/* Tooltip (Option A) */
+/* Tooltip */
 .bossIcon .tip{
   position:absolute;
   bottom:-26px;
@@ -215,8 +215,43 @@ th{color:var(--muted);background:rgba(0,0,0,.35);text-align:left;position:sticky
       <span class="spacer"></span>
       <button class="secondary" onclick="resetFilters()">Reset Filters</button>
     </div>
+
     <div class="divider"></div>
-    <div class="result" id="result">Click a roll button to generate tasks.</div>
+
+    <div class="result" id="result">
+      Click a roll button to generate tasks.
+    </div>
+  </div>
+
+  <!-- HISTORY LOG -->
+  <div class="card" style="margin-top:14px">
+    <div class="row">
+      <strong>History</strong>
+      <span class="spacer"></span>
+      <span style="font-size:12px;color:var(--muted)">
+        <span id="logCount">0</span> entries
+      </span>
+    </div>
+
+    <div class="divider"></div>
+
+    <div style="max-height:260px;overflow:auto;border-radius:12px;border:1px solid rgba(255,255,255,.1)">
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Boss</th>
+            <th>Points</th>
+            <th>Task</th>
+          </tr>
+        </thead>
+        <tbody id="logBody"></tbody>
+      </table>
+    </div>
+
+    <div class="row" style="margin-top:10px">
+      <button class="secondary" onclick="clearLog()">Clear Log</button>
+    </div>
   </div>
 </section>
 
@@ -231,14 +266,17 @@ th{color:var(--muted);background:rgba(0,0,0,.35);text-align:left;position:sticky
 </main>
 
 <script>
-let tasks=[], enabledBosses=new Set();
+let tasks=[], enabledBosses=new Set(), log=[];
 
 function bossToIconPath(b){
   return "icons/"+b.toLowerCase().replace(/&/g,"and").replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"")+".png";
 }
 
 function bossPillHTML(b){
-  return `<span class="bossPill"><img src="${bossToIconPath(b)}" onerror="this.style.display='none'"><span>${b}</span></span>`;
+  return `<span class="bossPill">
+    <img src="${bossToIconPath(b)}" onerror="this.style.display='none'">
+    <span>${b}</span>
+  </span>`;
 }
 
 async function loadTasks(){
@@ -254,11 +292,21 @@ async function loadTasks(){
 
 function roll(n){
   const pool=tasks.filter(t=>enabledBosses.has(t.boss));
+  if(!pool.length) return;
+
   const chosen=[...pool].sort(()=>.5-Math.random()).slice(0,n);
+  const time=new Date().toLocaleString();
+
+  chosen.forEach(t=>log.unshift({time,...t}));
+  renderLog();
+
   document.getElementById("result").innerHTML=`<div class="resultGrid">${
     chosen.map(t=>`
       <div class="taskCard">
-        <div class="taskHead">${bossPillHTML(t.boss)}<span class="pointsBadge">${t.points} pts</span></div>
+        <div class="taskHead">
+          ${bossPillHTML(t.boss)}
+          <span class="pointsBadge">${t.points} pts</span>
+        </div>
         <div class="desc">${t.desc}</div>
       </div>`).join("")
   }</div>`;
@@ -269,22 +317,35 @@ function renderBosses(){
   list.innerHTML="";
   [...new Set(tasks.map(t=>t.boss))].forEach(b=>{
     const d=document.createElement("div");
-    d.className="bossIcon";
+    d.className="bossIcon"+(enabledBosses.has(b)?"":" off");
+
     const i=document.createElement("img");
     i.src=bossToIconPath(b);
+
     const tip=document.createElement("div");
     tip.className="tip";
     tip.textContent=b;
+
     d.append(i,tip);
     d.onclick=()=>{enabledBosses.has(b)?enabledBosses.delete(b):enabledBosses.add(b);d.classList.toggle("off")};
     list.append(d);
   });
 }
 
-function resetFilters(){
-  enabledBosses=new Set(tasks.map(t=>t.boss));
-  renderBosses();
+function renderLog(){
+  document.getElementById("logCount").textContent=log.length;
+  document.getElementById("logBody").innerHTML=log.map(r=>`
+    <tr>
+      <td>${r.time}</td>
+      <td>${r.boss}</td>
+      <td>${r.points}</td>
+      <td>${r.desc}</td>
+    </tr>
+  `).join("");
 }
+
+function clearLog(){ log=[]; renderLog(); }
+function resetFilters(){ enabledBosses=new Set(tasks.map(t=>t.boss)); renderBosses(); }
 
 loadTasks();
 </script>
