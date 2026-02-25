@@ -95,6 +95,7 @@ button.secondary{
   display:flex;
   justify-content:space-between;
   align-items:center;
+  gap:10px;
 }
 
 .pointsBadge{
@@ -104,6 +105,7 @@ button.secondary{
   border-radius:999px;
   background:#ffff00;
   color:#111;
+  white-space:nowrap;
 }
 
 .tag{
@@ -148,7 +150,7 @@ tbody tr:hover{background:rgba(255,255,255,.04)}
   <h1>
     Task Roller
     <span class="spacer"></span>
-    <span style="font-size:11px;color:var(--muted)">Tasks auto-loaded</span>
+    <span id="status" style="font-size:11px;color:var(--muted)">Loading tasks…</span>
   </h1>
 </header>
 
@@ -223,121 +225,212 @@ let tasks=[];
 let enabledBosses=new Set();
 let log=[];
 
-// ---- CSV AUTO LOAD ----
+function setStatus(msg){ document.getElementById("status").textContent = msg; }
+
+// ---- CSV helpers ----
+function parseCSVRow(line){
+  const out = [];
+  let cur = "";
+  let inQuotes = false;
+
+  for (let i=0; i<line.length; i++){
+    const ch = line[i];
+
+    if (ch === '"'){
+      if (inQuotes && line[i+1] === '"'){
+        cur += '"'; i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === ',' && !inQuotes){
+      out.push(cur.trim());
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  out.push(cur.trim());
+  return out;
+}
+
+function looksLikeHeader(cols){
+  const joined = cols.join(" ").toLowerCase();
+  return joined.includes("points") || joined.includes("boss") || joined.includes("task");
+}
+
+// ---- storage ----
+function saveAll(){
+  localStorage.setItem(STORAGE_TASKS,JSON.stringify(tasks));
+  localStorage.setItem(STORAGE_FILTERS,JSON.stringify([...enabledBosses]));
+  localStorage.setItem(STORAGE_LOG,JSON.stringify(log));
+}
+
+function loadSaved(){
+  const savedLog = localStorage.getItem(STORAGE_LOG);
+  log = savedLog ? (JSON.parse(savedLog) || []) : [];
+  renderLog();
+}
+
+// ---- load tasks from CSV (supports 3-col or 4-col) ----
 async function loadTasksFromCSV(){
   const res = await fetch("tasks.csv", { cache: "no-store" });
+  if (!res.ok) throw new Error("Could not fetch tasks.csv");
   const text = await res.text();
-  const lines = text.split(/\r?\n/).filter(Boolean);
 
-  const start = lines[0].toLowerCase().includes("points") ? 1 : 0;
-  tasks = [];
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (!lines.length) throw new Error("tasks.csv is empty");
 
-  for (let i=start;i<lines.length;i++){
-    const cols = parseCSV(lines[i]);
-    if (cols.length < 4) continue;
-    tasks.push({
-      id: cols[0],
-      points: Number(cols[1]) || 0,
-      boss: cols[2],
-      desc: cols.slice(3).join(",")
-    });
+  // detect header
+  const firstCols = parseCSVRow(lines[0]);
+  const start = looksLikeHeader(firstCols) ? 1 : 0;
+
+  const parsed = [];
+  let autoId = 1;
+
+  for (let i=start; i<lines.length; i++){
+    const cols = parseCSVRow(lines[i]);
+    if (cols.length < 3) continue;
+
+    // 3 columns: points, boss, desc
+    if (cols.length === 3){
+      parsed.push({
+        id: autoId++,
+        points: Number(cols[0]) || 0,
+        boss: cols[1],
+        desc: cols[2]
+      });
+      continue;
+    }
+
+    // 4+ columns:
+    // If your file is id,points,boss,desc -> use it.
+    // If your file is points,boss,desc,extra... -> treat first as points if numeric.
+    const firstIsNumber = !isNaN(Number(cols[0])) && cols[0] !== "";
+
+    if (firstIsNumber && cols.length >= 4){
+      // Decide whether cols[0] is id or points:
+      // If cols[1] is numeric too, cols[0] is probably id.
+      const secondIsNumber = !isNaN(Number(cols[1])) && cols[1] !== "";
+
+      if (secondIsNumber){
+        // id, points, boss, desc...
+        parsed.push({
+          id: cols[0],
+          points: Number(cols[1]) || 0,
+          boss: cols[2],
+          desc: cols.slice(3).join(",").trim()
+        });
+      } else {
+        // points, boss, desc...
+        parsed.push({
+          id: autoId++,
+          points: Number(cols[0]) || 0,
+          boss: cols[1],
+          desc: cols.slice(2).join(",").trim()
+        });
+      }
+    }
   }
 
+  if (!parsed.length) throw new Error("No tasks parsed from tasks.csv");
+
+  tasks = parsed;
+  enabledBosses = new Set([...new Set(tasks.map(t => t.boss))]);
+  saveAll();
+  renderBosses();
+  setStatus(`Loaded ${tasks.length} tasks`);
+}
+
+// ---- UI ----
+function roll(n){
+  if (!tasks.length){
+    document.getElementById("result").textContent = "Tasks not loaded yet (or tasks.csv failed).";
+    return;
+  }
+
+  const eligible = tasks.filter(t => enabledBosses.has(t.boss));
+  if (!eligible.length){
+    document.getElementById("result").textContent = "No eligible tasks. Enable at least one boss.";
+    return;
+  }
+
+  const chosen = [...eligible].sort(()=>0.5-Math.random()).slice(0, Math.min(n, eligible.length));
+  const now = new Date().toISOString();
+
+  chosen.forEach(t => log.unshift({ time: now, ...t }));
+  saveAll();
+  renderLog();
+
+  document.getElementById("result").innerHTML = `
+    <div class="resultGrid">
+      ${chosen.map(t => `
+        <div class="taskCard">
+          <div class="taskHead">
+            <span class="tag">${t.boss}</span>
+            <span class="pointsBadge">${t.points} pts</span>
+          </div>
+          <div class="desc">${t.desc}</div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderBosses(){
+  const list = document.getElementById("bossList");
+  list.innerHTML = "";
+
+  const bosses = [...new Set(tasks.map(t=>t.boss))];
+  bosses.forEach(b=>{
+    const label=document.createElement("label");
+    label.className="bossItem";
+    const cb=document.createElement("input");
+    cb.type="checkbox";
+    cb.checked=enabledBosses.has(b);
+    cb.onchange=()=>{ cb.checked ? enabledBosses.add(b) : enabledBosses.delete(b); saveAll(); };
+    const sp=document.createElement("span");
+    sp.textContent=b;
+    label.append(cb,sp);
+    list.appendChild(label);
+  });
+}
+
+function renderLog(){
+  document.getElementById("logCount").textContent = log.length;
+  document.getElementById("logBody").innerHTML = log.map(r=>`
+    <tr>
+      <td>${new Date(r.time).toLocaleString()}</td>
+      <td><strong>${r.boss}</strong></td>
+      <td>${r.id}</td>
+      <td>${r.points}</td>
+      <td>${r.desc}</td>
+    </tr>
+  `).join("");
+}
+
+function clearLog(){
+  log=[];
+  saveAll();
+  renderLog();
+}
+
+function resetFilters(){
   enabledBosses = new Set(tasks.map(t=>t.boss));
   saveAll();
   renderBosses();
 }
 
-function parseCSV(line){
-  const out=[],cur=[];
-  let q=false;
-  for(let i=0;i<line.length;i++){
-    const c=line[i];
-    if(c=='"' && line[i+1]=='"'){cur.push('"');i++;}
-    else if(c=='"') q=!q;
-    else if(c==',' && !q){out.push(cur.join("").trim());cur.length=0;}
-    else cur.push(c);
-  }
-  out.push(cur.join("").trim());
-  return out;
-}
-
-// ---- CORE ----
-function saveAll(){
- localStorage.setItem(STORAGE_TASKS,JSON.stringify(tasks));
- localStorage.setItem(STORAGE_FILTERS,JSON.stringify([...enabledBosses]));
- localStorage.setItem(STORAGE_LOG,JSON.stringify(log));
-}
-
-function roll(n){
- const eligible=tasks.filter(t=>enabledBosses.has(t.boss));
- if(!eligible.length) return;
-
- const chosen=[...eligible].sort(()=>0.5-Math.random()).slice(0,n);
- const now=new Date().toISOString();
-
- chosen.forEach(t=>log.unshift({time:now,...t}));
- saveAll();
- renderLog();
-
- document.getElementById("result").innerHTML=`
-  <div class="resultGrid">
-   ${chosen.map(t=>`
-    <div class="taskCard">
-      <div class="taskHead">
-        <span class="tag">${t.boss}</span>
-        <span class="pointsBadge">${t.points} pts</span>
-      </div>
-      <div class="desc">${t.desc}</div>
-    </div>`).join("")}
-  </div>`;
-}
-
-function renderBosses(){
- const list=document.getElementById("bossList");
- list.innerHTML="";
- [...new Set(tasks.map(t=>t.boss))].forEach(b=>{
-  const l=document.createElement("label");
-  l.className="bossItem";
-  const cb=document.createElement("input");
-  cb.type="checkbox";
-  cb.checked=enabledBosses.has(b);
-  cb.onchange=()=>{cb.checked?enabledBosses.add(b):enabledBosses.delete(b);saveAll();}
-  l.append(cb,document.createElement("span"));
-  l.lastChild.textContent=b;
-  list.appendChild(l);
- });
-}
-
-function renderLog(){
- document.getElementById("logCount").textContent=log.length;
- document.getElementById("logBody").innerHTML=log.map(r=>`
-  <tr>
-   <td>${new Date(r.time).toLocaleString()}</td>
-   <td><strong>${r.boss}</strong></td>
-   <td>${r.id}</td>
-   <td>${r.points}</td>
-   <td>${r.desc}</td>
-  </tr>`).join("");
-}
-
-function clearLog(){
- log=[];
- saveAll();
- renderLog();
-}
-
-function resetFilters(){
- enabledBosses=new Set(tasks.map(t=>t.boss));
- saveAll();
- renderBosses();
-}
-
-// ---- BOOT ----
+// ---- boot ----
 (async()=>{
- log=JSON.parse(localStorage.getItem(STORAGE_LOG))||[];
- await loadTasksFromCSV();
- renderLog();
+  loadSaved();
+  try{
+    await loadTasksFromCSV();
+  } catch (e){
+    console.error(e);
+    setStatus("tasks.csv failed to load");
+    document.getElementById("result").textContent =
+      "Could not load tasks.csv. Make sure tasks.csv is in the same folder and GitHub Pages is enabled.";
+  }
 })();
 </script>
 
